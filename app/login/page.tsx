@@ -5,5 +5,5 @@ export default async function Login({searchParams}: {searchParams: Promise<{erro
     <p>Use your workspace email and password.</p>
     <form action={signIn}><label>Email address<input type="email" autoComplete="username" name="email" required maxLength={320}/></label>
     <label>Password<input type="password" name="password" autoComplete="current-password" required maxLength={1024}/></label>
-    {error && <p role="alert">Sign-in failed. Check your details and try again.</p>}<button>Sign in</button></form></main>
+    {error && <p role="alert">{error === 'invite' ? 'That invitation link has expired or has already been used. Ask an owner to send a new one.' : 'Sign-in failed. Check your details and try again.'}</p>}<button>Sign in</button></form></main>
 }

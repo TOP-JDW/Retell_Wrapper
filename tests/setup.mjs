@@ -5,21 +5,24 @@ export const ids = {
   a: '00000000-0000-4000-8000-000000000001', // owner of workspace A
   b: '00000000-0000-4000-8000-000000000002', // admin of workspace B
   viewerA: '00000000-0000-4000-8000-000000000003',
-  viewerB: '00000000-0000-4000-8000-000000000004'
+  viewerB: '00000000-0000-4000-8000-000000000004',
+  newcomer: '00000000-0000-4000-8000-000000000005', // has an account but no membership
+  newcomer2: '00000000-0000-4000-8000-000000000006'
 }
 
 // Builds a database with a minimal Supabase Auth fixture, every migration applied in order and sample data.
 export async function createDb() {
   const db = new PGlite()
   await db.exec(`create role anon; create role authenticated; create schema auth;
-    create table auth.users(id uuid primary key);
+    create table auth.users(id uuid primary key, email text);
     create function auth.uid() returns uuid language sql as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
     grant usage on schema auth to authenticated;`)
   const folder = new URL('../supabase/migrations/', import.meta.url)
   for (const file of (await readdir(folder)).filter(name => name.endsWith('.sql')).sort())
     await db.exec(await readFile(new URL(file, folder), 'utf8'))
   const { a, b, viewerA, viewerB } = ids
-  await db.exec(`insert into auth.users values ('${a}'),('${b}'),('${viewerA}'),('${viewerB}');
+  await db.exec(`insert into auth.users values ('${a}','a@example.com'),('${b}','b@example.com'),('${viewerA}','va@example.com'),('${viewerB}','vb@example.com'),
+    ('${ids.newcomer}','new@example.com'),('${ids.newcomer2}','new2@example.com');
     insert into workspaces values ('${a}','A'),('${b}','B');
     insert into memberships values ('${a}','${a}','owner'),('${b}','${b}','admin'),('${viewerA}','${a}','viewer'),('${viewerB}','${b}','viewer');
     insert into clients values ('${a}','${a}','A client'),('${b}','${b}','B client');
