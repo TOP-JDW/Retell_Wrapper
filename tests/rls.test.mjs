@@ -67,17 +67,53 @@ test('agents and calls are read-only for application users, and nobody can delet
       await assert.rejects(as(db, user, `insert into agents(workspace_id,name) values ('${a}','x')`), /permission denied/)
       await assert.rejects(as(db, user, `insert into calls(workspace_id,agent_id,retell_call_id,started_at) values ('${a}','${a}','c',now())`), /permission denied/)
       await assert.rejects(as(db, user, 'delete from clients'), /permission denied/)
-      await assert.rejects(as(db, user, 'delete from memberships'), /permission denied/)
     }
   } finally { await db.close() }
 })
 
-test('memberships cannot be changed through the application', async () => {
+test('only owners add, change and remove members, and only in their own workspace', async () => {
   const db = await createDb()
   try {
-    for (const user of [a, b, viewerA])
-      for (const sql of ["update memberships set role='owner'", `insert into memberships values ('${a}','${a}','viewer')`])
-        await assert.rejects(as(db, user, sql), /permission denied/)
+    const add = (user, ws, who, role = 'viewer') => as(db, user, `insert into memberships(user_id,workspace_id,role) values ('${who}','${ws}','${role}')`)
+    for (const user of [b, viewerA]) await assert.rejects(add(user, user === b ? b : a, ids.newcomer), /row-level security/)
+    await assert.rejects(add(a, b, ids.newcomer), /row-level security/)
+    await add(a, a, ids.newcomer, 'admin')
+    assert.equal((await as(db, a, `select email, role from memberships where user_id='${ids.newcomer}'`)).rows[0].email, 'new@example.com')
+
+    assert.equal((await as(db, a, `update memberships set role='viewer' where user_id='${ids.newcomer}' returning *`)).rows.length, 1)
+    for (const user of [b, viewerA])
+      assert.equal((await as(db, user, `update memberships set role='owner' where user_id='${ids.newcomer}' returning *`)).rows.length, 0)
+    assert.equal((await as(db, a, `update memberships set role='viewer' where user_id='${viewerB}' returning *`)).rows.length, 0)
+
+    for (const user of [b, viewerA])
+      assert.equal((await as(db, user, `delete from memberships where user_id='${ids.newcomer}' returning *`)).rows.length, 0)
+    assert.equal((await as(db, a, `delete from memberships where user_id='${viewerB}' returning *`)).rows.length, 0)
+    assert.equal((await as(db, a, `delete from memberships where user_id='${ids.newcomer}' returning *`)).rows.length, 1)
+  } finally { await db.close() }
+})
+
+test('members cannot be moved, re-pointed or given a chosen email', async () => {
+  const db = await createDb()
+  try {
+    await assert.rejects(as(db, a, `update memberships set workspace_id='${b}' where user_id='${viewerA}'`), /permission denied/)
+    await assert.rejects(as(db, a, `update memberships set user_id='${ids.newcomer}' where user_id='${viewerA}'`), /permission denied/)
+    await assert.rejects(as(db, a, `update memberships set email='x@example.com' where user_id='${viewerA}'`), /permission denied/)
+    await assert.rejects(as(db, a, `insert into memberships(user_id,workspace_id,role,email) values ('${ids.newcomer}','${a}','viewer','forged@example.com')`), /permission denied/)
+    await assert.rejects(as(db, a, `update memberships set role='superuser' where user_id='${viewerA}'`), /check constraint/)
+  } finally { await db.close() }
+})
+
+test('a workspace always keeps an owner', async () => {
+  const db = await createDb()
+  try {
+    await assert.rejects(as(db, a, `update memberships set role='admin' where user_id='${a}'`), /at least one owner/)
+    await assert.rejects(as(db, a, `delete from memberships where user_id='${a}'`), /at least one owner/)
+    await db.exec(`insert into memberships(user_id,workspace_id,role) values ('${ids.newcomer}','${a}','owner')`)
+    // With a second owner, either can step down, but not both.
+    assert.equal((await as(db, a, `update memberships set role='admin' where user_id='${a}' returning *`)).rows.length, 1)
+    await assert.rejects(as(db, ids.newcomer, `delete from memberships where user_id='${ids.newcomer}'`), /at least one owner/)
+    // The guard also holds when the account itself is removed.
+    await assert.rejects(db.exec(`delete from auth.users where id='${ids.newcomer}'`), /foreign key|at least one owner/)
   } finally { await db.close() }
 })
 
