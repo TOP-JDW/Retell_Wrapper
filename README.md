@@ -1,6 +1,6 @@
 # Retell Voice AI Management Platform
 
-Phase 1 provides a Next.js App Router application for internal workspace staff. Dashboard counts the local records. My Agents, Call History, Client Management and Branding & Settings have read-only views of their respective tables. User Permissions lets owners invite members, change roles and remove people. Lists show up to 100 records. Retell is disconnected.
+Phase 1 provides a Next.js App Router application for internal workspace staff. Dashboard counts the local records. Client Management and Branding & Settings have read-only views of their respective tables. My Agents and Call History show a copy of your Retell voice agents and recent calls, which an owner refreshes with the Import button. User Permissions lets owners invite members, change roles and remove people. Lists show up to 100 records. Retell is connected read-only: the app can list agents and calls and can never change anything in Retell.
 
 ## Development setup
 
@@ -34,10 +34,21 @@ Invited people receive an email, accept, choose a password of at least 12 charac
 
 ## Permissions and data
 
-Supabase Auth supplies verified identities. Supabase SSR handles cookie-backed sessions and refresh. Every protected data page verifies identity and membership. PostgreSQL enforces workspace boundaries with row-level security. Owners read the member directory and write branding records. Owners and admins write client records. Admins and viewers read workspace data and their own membership only. Branding is created by an owner, so a workspace needs an owner for its branding to be set through the application. Owners invite members, change roles and remove people within their own workspace, enforced by row-level security. A database trigger stops the last owner being demoted or removed, and owners cannot change or remove themselves in the application. Only the role of an existing member can change; the person, workspace and email cannot. Agent and call data are read-only for all application users. Foreign keys prevent an agent or call from being linked to a record in a different workspace.
+Supabase Auth supplies verified identities. Supabase SSR handles cookie-backed sessions and refresh. Every protected data page verifies identity and membership. PostgreSQL enforces workspace boundaries with row-level security. Owners read the member directory and write branding records. Owners and admins write client records. Admins and viewers read workspace data and their own membership only. Branding is created by an owner, so a workspace needs an owner for its branding to be set through the application. Owners invite members, change roles and remove people within their own workspace, enforced by row-level security. A database trigger stops the last owner being demoted or removed, and owners cannot change or remove themselves in the application. Only the role of an existing member can change; the person, workspace and email cannot. Owners import agents and calls for their own workspace, and nobody else can write them. Nobody can delete them through the application, and the import never sets a client link. Foreign keys prevent an agent or call from being linked to a record in a different workspace.
 
 ## Codex Cloud and checks
 
 Connect GitHub in Codex Cloud and select the private repository. Use Node.js 22 and `npm ci` for environment setup. Work on branches and review pull requests. GitHub Actions runs the database tests, Next.js build and TypeScript checks on pushes and pull requests. Use `npm test && npm run build && npm run typecheck` locally. The SQL tests run the migration in embedded PostgreSQL with a small Supabase Auth schema fixture. A real development-project sign-in and session refresh are still required as an integration check.
 
-Do not import agents, create webhooks, place calls or configure Retell credentials during Phase 1.
+## Connect Retell (read-only)
+
+The import copies your voice agents and your 1,000 most recent calls into the database. Owners run it with the **Import from Retell** button on My Agents, and running it again updates the copy.
+
+1. Apply the newest migration in `supabase/migrations/`.
+2. In Retell, open API Keys and add a key named for this app. Turn on **Restrict permissions**. Give it **Read** on Agent (under Build) and on History (under Monitor), and leave every other row on No Access, especially Call and Phone, which can place real calls. Use a key of its own, not one shared with a webhook or other automation.
+3. Add the key to `.env.local` as `RETELL_API_KEY=` and restart the app. It is read only in `lib/retell-server.ts`, on the server.
+4. Open My Agents as an owner and click **Import from Retell**. If Retell refuses the key, check the permissions in step 2. Retell's documentation does not say which permission each list request needs.
+
+What it keeps: agent name, whether it is suspended and when it was last changed; for each call, its agent, start and end time, length, status, whether it was a web or phone call, whether a phone call was inbound or outbound, and why it ended. It does not keep phone numbers, transcripts, recordings, summaries or costs. Calls with no start time, and calls for agents that are not voice agents in the account, are skipped and counted.
+
+The only Retell requests the app can make are `POST /v2/list-agents` and `POST /v3/list-calls`. Both only read, and a test fails if the client gains any other request. Do not create webhooks, place calls or change agents from this app.
