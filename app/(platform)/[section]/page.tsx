@@ -10,7 +10,9 @@ export default async function Section({params}: {params: Promise<{section: strin
   const workspace = membership.workspace_id
   if (section === 'dashboard') {
     const totals = await Promise.all(['agents','calls','clients'].map(async table => {
-      const {count,error} = await db.from(table).select('*',{count:'exact',head:true}).eq('workspace_id', workspace)
+      let counting = db.from(table).select('*',{count:'exact',head:true}).eq('workspace_id', workspace)
+      if (table === 'agents') counting = counting.eq('is_transfer_agent', false) // transfer agents are hidden from the agent list
+      const {count,error} = await counting
       if (error) throw new Error('Dashboard could not load.')
       return count
     }))
