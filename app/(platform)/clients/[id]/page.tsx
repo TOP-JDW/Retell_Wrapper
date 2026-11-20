@@ -34,8 +34,10 @@ export default async function Client({params, searchParams}: {params: Promise<{i
   return <div className="stack">
     <header className="page-head"><div>
       <p className="crumb"><Link href="/clients">Client Management</Link></p>
-      <div className="client-title">{logo && <img src={logo} alt=""/>}<h1>{client.name}</h1></div>
-      <p>{visible.length === 1 ? '1 agent' : `${visible.length} agents`} linked to this client.</p>
+      <div className="client-head">
+        {logo && <div className="logo-tile"><img src={logo} alt={`${client.name} logo`}/></div>}
+        <div><h1>{client.name}</h1><p>{visible.length === 1 ? '1 agent' : `${visible.length} agents`} linked to this client.</p></div>
+      </div>
     </div></header>
     {notice && clientNotices[notice] && <p role="status" className="notice success">{clientNotices[notice]}</p>}
     {error && clientProblems[error] && <p role="alert" className="notice problem">{clientProblems[error]}</p>}

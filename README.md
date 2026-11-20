@@ -62,7 +62,7 @@ None of this is stored. The page asks Retell for the call each time it opens. Th
 
 The dashboard shows the last 30 days by default, with 7 and 90 days to choose from. It shows the number of calls, the share that connected, the average length and total talk time of connected calls, calls per day, the busiest agents and the latest calls. "Connected" means Retell reports the call as ended; not connected, error and ongoing calls do not count. Days follow UK time. The figures come from two read-only database functions, `call_daily_stats` and `call_agent_stats`, which run as the signed-in user and count only their workspace.
 
-Call History filters by client (or no client), agent and a UK date range, 100 calls per page.
+Call History filters by client (or no client), agent and a UK date range, 100 calls per page. Calls handled by transfer agents are hidden by default, as transfer agents are on My Agents; tick Show transfer calls, or choose a transfer agent in the Agent filter, to see them. The dashboard figures still include them.
 
 ## Connect Retell (read-only)
 
