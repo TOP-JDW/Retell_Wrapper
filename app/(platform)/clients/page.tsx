@@ -14,6 +14,10 @@ export default async function Clients({searchParams}: {searchParams: Promise<{no
   const {data: links, error: linkError} = await db.from('agents').select('client_id')
     .eq('workspace_id', membership.workspace_id).eq('is_transfer_agent', false).not('client_id', 'is', null).limit(5000)
   if (linkError) throw new Error('Clients could not load.')
+  const {data: colours, error: colourError} = await db.from('client_branding').select('client_id,accent_colour')
+    .eq('workspace_id', membership.workspace_id).limit(500)
+  if (colourError) throw new Error('Clients could not load.')
+  const accentOf = new Map(colours.map(row => [row.client_id, row.accent_colour]))
   const agentCounts = new Map<string, number>()
   for (const {client_id} of links) agentCounts.set(client_id, (agentCounts.get(client_id) ?? 0) + 1)
 
@@ -28,7 +32,9 @@ export default async function Clients({searchParams}: {searchParams: Promise<{no
       : <div className="table-scroll"><table>
           <thead><tr><th>Client</th><th className="num">Agents</th></tr></thead>
           <tbody>{clients.map(client => <tr key={client.id}>
-            <td className="primary-cell"><Link className="row-link" href={`/clients/${client.id}`}>{client.name}</Link></td>
+            <td className="primary-cell"><span className="client-name">
+              <i className="swatch" style={{background: accentOf.get(client.id) ?? 'transparent'}} title={accentOf.has(client.id) ? `Brand colour ${accentOf.get(client.id)}` : 'No branding yet'}/>
+              <Link className="row-link" href={`/clients/${client.id}`}>{client.name}</Link></span></td>
             <td className="num">{agentCounts.get(client.id) ?? 0}</td>
           </tr>)}</tbody>
         </table></div>}

@@ -46,6 +46,12 @@ Supabase Auth supplies verified identities. Supabase SSR handles cookie-backed s
 
 Connect GitHub in Codex Cloud and select the private repository. Use Node.js 22 and `npm ci` for environment setup. Work on branches and review pull requests. GitHub Actions runs the database tests, Next.js build and TypeScript checks on pushes and pull requests. Use `npm test && npm run build && npm run typecheck` locally. The SQL tests run the migration in embedded PostgreSQL with a small Supabase Auth schema fixture. A real development-project sign-in and session refresh are still required as an integration check.
 
+## Client branding
+
+Each client's page has a Branding section: a display name, a main colour and an optional logo, with a live preview of how the client's portal will look. Owners and admins set it; everyone in the workspace can see it. Nothing is shown to clients yet; it is used when client logins arrive.
+
+Logos are PNG, JPEG, WebP or SVG, up to 256 KB, checked by their contents rather than their file name, and stored in the `client_branding` table, so there is no separate file store to secure. SVGs with scripts, event handlers or outside links are refused. Branding is deleted with its client. Button text on the client's colour switches between white and near-black to stay readable.
+
 ## Dashboard and call filters
 
 The dashboard shows the last 30 days by default, with 7 and 90 days to choose from. It shows the number of calls, the share that connected, the average length and total talk time of connected calls, calls per day, the busiest agents and the latest calls. "Connected" means Retell reports the call as ended; not connected, error and ongoing calls do not count. Days follow UK time. The figures come from two read-only database functions, `call_daily_stats` and `call_agent_stats`, which run as the signed-in user and count only their workspace.

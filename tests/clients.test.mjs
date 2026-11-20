@@ -87,6 +87,6 @@ test('client names and ids from forms are checked before use', () => {
 test('every client action checks for an owner or admin before touching data', async () => {
   const text = await readFile(new URL('../app/(platform)/clients/actions.ts', import.meta.url), 'utf8')
   const actions = text.split(/export async function /).slice(1)
-  assert.equal(actions.length, 4)
+  assert.equal(actions.length, 5)
   for (const action of actions) assert.match(action, /await staff\(\)/, action.split('(')[0])
 })

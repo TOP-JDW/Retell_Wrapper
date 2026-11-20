@@ -1,6 +1,7 @@
 'use server'
 import { redirect } from 'next/navigation'
 import { member } from '../../../lib/auth'
+import { checkLogo, maximumLogoBytes, parseAccent, parseDisplayName } from '../../../lib/branding'
 import { parseClientName, parseId } from '../../../lib/clients'
 
 // Owners and admins manage clients. The database enforces the same rule.
@@ -61,4 +62,38 @@ export async function linkAgent(form: FormData) {
   const { error } = await db.rpc('set_agent_client', { target_agent: agent, target_client: client })
   if (error) { console.error('Agent link failed:', error.message); redirect('/agents?error=link') }
   redirect('/agents?notice=linked')
+}
+
+// Saves how the client's portal will look. The current logo is kept unless a new one is uploaded or removal is ticked.
+export async function saveClientBranding(form: FormData) {
+  const { db, membership } = await staff()
+  const id = parseId(form.get('client_id'))
+  if (!id) redirect('/clients?error=missing')
+  const back = (code: string) => redirect(`/clients/${id}?error=${code}#branding`)
+  const displayName = parseDisplayName(form.get('display_name'))
+  if (!displayName) back('brand_name')
+  const accent = parseAccent(form.get('accent_colour'))
+  if (!accent) back('colour')
+
+  const { data: client, error: clientError } = await db.from('clients').select('id')
+    .eq('id', id).eq('workspace_id', membership.workspace_id).maybeSingle()
+  if (clientError || !client) redirect('/clients?error=missing')
+
+  const row: Record<string, string | null> = {
+    client_id: id, workspace_id: membership.workspace_id, display_name: displayName, accent_colour: accent, updated_at: new Date().toISOString()
+  }
+  const file = form.get('logo')
+  if (form.get('remove_logo') === 'on') {
+    row.logo_mime = null
+    row.logo_base64 = null
+  } else if (file instanceof File && file.size > 0) {
+    if (file.size > maximumLogoBytes) back('logo_size')
+    const logo = checkLogo(new Uint8Array(await file.arrayBuffer()))
+    if (!logo.ok) back(logo.problem)
+    else { row.logo_mime = logo.mime; row.logo_base64 = logo.base64 }
+  }
+
+  const { error } = await db.from('client_branding').upsert(row, { onConflict: 'client_id' })
+  if (error) { console.error('Branding could not be saved:', error.message); back('save') }
+  redirect(`/clients/${id}?notice=branding#branding`)
 }
