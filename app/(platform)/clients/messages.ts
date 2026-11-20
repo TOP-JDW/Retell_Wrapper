@@ -3,7 +3,9 @@ export const clientNotices: Record<string, string> = {
   added: 'Client added. Link its agents on My Agents.',
   renamed: 'Client renamed.',
   deleted: 'Client deleted. Its agents are kept and are no longer linked to a client.',
-  branding: 'Branding saved.'
+  branding: 'Branding saved.',
+  recordings_on: 'This client can now play recordings and read transcripts.',
+  recordings_off: 'This client can no longer play recordings or read transcripts.'
 }
 export const clientProblems: Record<string, string> = {
   staff: 'Only owners and admins can change clients.',

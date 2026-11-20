@@ -10,26 +10,37 @@ import { CallsChart } from '../../components/CallsChart'
 
 type AgentStat = { agent_id: string; total: number; connected: number; connected_ms: number; timed: number }
 
-export default async function Dashboard({searchParams}: {searchParams: Promise<{days?: string}>}) {
-  const days = parsePeriod((await searchParams).days)
+export default async function Dashboard({searchParams}: {searchParams: Promise<{days?: string; transfers?: string}>}) {
+  const query = await searchParams
+  const days = parsePeriod(query.days)
+  // Transfer calls are left out unless asked for, as on Call History.
+  const transfers = query.transfers === '1'
+  const link = (p: number, t: boolean) => `/dashboard?days=${p}${t ? '&transfers=1' : ''}`
   const {db, membership} = await member()
   const range = periodRange(days)
-  const args = {from_ts: range.fromTs, to_ts: range.toTs}
+  const args = {from_ts: range.fromTs, to_ts: range.toTs, ...(transfers ? {include_transfers: true} : {})}
   const [daily, byAgent] = await Promise.all([db.rpc('call_daily_stats', args), db.rpc('call_agent_stats', args)])
   if (daily.error || byAgent.error) throw new Error('Dashboard could not load.')
   const series = fillDays((daily.data ?? []) as DayStat[], range.dates)
   const totals = summarise(series)
   const topAgents = ((byAgent.data ?? []) as AgentStat[]).slice(0, 10)
   const {agents, clients} = await agentNames(db, topAgents.map(row => row.agent_id))
-  const recent = await latestCalls(db, membership.workspace_id, 5)
+  let shownAgents: string[] | undefined
+  if (!transfers) {
+    const {data, error} = await db.from('agents').select('id').eq('workspace_id', membership.workspace_id).eq('is_transfer_agent', false).limit(1000)
+    if (error) throw new Error('Dashboard could not load.')
+    shownAgents = data.map(agent => agent.id)
+  }
+  const recent = await latestCalls(db, membership.workspace_id, 5, shownAgents)
   const busiest = series.reduce((best, d) => (d.total > best.total ? d : best), series[0])
   const chartDays = series.map(d => ({day: d.day, label: shortDate(d.day), connected: d.connected, other: d.total - d.connected}))
 
   return <div className="stack">
     <header className="page-head">
-      <div><h1>Dashboard</h1><p>Calls in the last {days} days. Days follow UK time.</p></div>
+      <div><h1>Dashboard</h1><p>Calls in the last {days} days. Days follow UK time.{' '}
+        {transfers ? <>Transfer calls are counted. <Link href={link(days, false)}>Leave them out</Link></> : <>Transfer calls are left out. <Link href={link(days, true)}>Count them</Link></>}</p></div>
       <nav className="segmented" aria-label="Time period">{periods.map(p =>
-        <Link key={p} href={`/dashboard?days=${p}`} aria-current={p === days ? 'true' : undefined}>{p} days</Link>)}</nav>
+        <Link key={p} href={link(p, transfers)} aria-current={p === days ? 'true' : undefined}>{p} days</Link>)}</nav>
     </header>
 
     <section className="panel stats four" aria-label={`Figures for the last ${days} days`}>
@@ -86,7 +97,7 @@ export default async function Dashboard({searchParams}: {searchParams: Promise<{
       </>}
 
     <section>
-      <div className="section-head"><h2>Latest calls</h2>{recent.length > 0 && <Link href="/calls">All calls</Link>}</div>
+      <div className="section-head"><h2>Latest calls</h2>{recent.length > 0 && <Link href={transfers ? "/calls?transfers=1" : "/calls"}>All calls</Link>}</div>
       <div className="panel">{recent.length === 0
         ? <div className="empty"><strong>No calls yet</strong><p>Calls appear here after an owner imports them from Retell on My Agents.</p></div>
         : <CallTable label="Latest calls" calls={recent} columns={['started', 'agent', 'client', 'status', 'length']}/>}

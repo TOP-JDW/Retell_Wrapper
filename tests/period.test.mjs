@@ -81,5 +81,11 @@ test('talk time and percentages read naturally', () => {
 
 test('the chart uses the colours checked by the data-visualisation validator', async () => {
   const chart = await readFile(new URL('../lib/chart.ts', import.meta.url), 'utf8')
-  assert.match(chart, /connected: '#3D4FB8', other: '#57C1E8'/)
+  assert.match(chart, /light: \{ connected: '#3D4FB8', other: '#57C1E8' \}, dark: \{ connected: '#6676E0', other: '#2BA3B8' \}/)
+  // The stylesheet holds the same values, once for light and once for each way of choosing dark.
+  const css = await readFile(new URL('../app/style.css', import.meta.url), 'utf8')
+  assert.equal(css.split('--chart-connected: #3D4FB8; --chart-other: #57C1E8;').length - 1, 1)
+  assert.equal(css.split('--chart-connected: #6676E0; --chart-other: #2BA3B8;').length - 1, 2)
+  const drawing = await readFile(new URL('../app/components/CallsChart.tsx', import.meta.url), 'utf8')
+  assert.ok(!/#[0-9A-F]{6}/i.test(drawing), 'the chart takes every colour from the theme or its caller')
 })

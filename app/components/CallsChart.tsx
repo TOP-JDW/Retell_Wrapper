@@ -39,7 +39,7 @@ export function CallsChart({ days, summary, colours = chartColours }: { days: Ch
   return <div className="chart-scroll"><div className="chart" onMouseLeave={() => setActive(null)}>
     <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={summary}>
       {ticks.map(t => <g key={t}>
-        <line x1={left} x2={W - right} y1={y(t)} y2={y(t)} stroke="#E4E9F1" strokeWidth="1"/>
+        <line x1={left} x2={W - right} y1={y(t)} y2={y(t)} className="chart-grid" strokeWidth="1"/>
         <text x={left - 8} y={y(t)} dy="0.32em" textAnchor="end" className="chart-axis">{t.toLocaleString('en-GB')}</text>
       </g>)}
       {days.map((d, i) => {
@@ -49,9 +49,9 @@ export function CallsChart({ days, summary, colours = chartColours }: { days: Ch
         const hOther = (d.other / yMax) * innerH
         const otherBase = y(d.connected) - (d.connected > 0 && d.other > 0 ? gap : 0)
         return <g key={d.day}>
-          {active === i && <rect x={left + slot * i} y={top} width={slot} height={innerH} fill="#F1F4F9"/>}
-          {d.connected > 0 && <path d={d.other > 0 ? `M${x},${y(0)}V${y(d.connected)}H${x + barW}V${y(0)}Z` : topRounded(x, y(d.connected), barW, hConnected, 4)} fill={colours.connected}/>}
-          {d.other > 0 && <path d={topRounded(x, otherBase - hOther, barW, hOther, 4)} fill={colours.other}/>}
+          {active === i && <rect x={left + slot * i} y={top} width={slot} height={innerH} className="chart-hover"/>}
+          {d.connected > 0 && <path d={d.other > 0 ? `M${x},${y(0)}V${y(d.connected)}H${x + barW}V${y(0)}Z` : topRounded(x, y(d.connected), barW, hConnected, 4)} style={{ fill: colours.connected }}/>}
+          {d.other > 0 && <path d={topRounded(x, otherBase - hOther, barW, hOther, 4)} style={{ fill: colours.other }}/>}
           {i === peak && totals[i] > 0 && <text x={cx} y={y(totals[i]) - (d.connected > 0 && d.other > 0 ? gap : 0) - 6} textAnchor="middle" className="chart-value">{totals[i].toLocaleString('en-GB')}</text>}
           {(i % labelEvery === 0 || i === days.length - 1) && (i === days.length - 1 || days.length - 1 - i >= labelEvery / 2) &&
             <text x={cx} y={H - 8} textAnchor="middle" className="chart-axis">{d.label}</text>}
@@ -60,7 +60,7 @@ export function CallsChart({ days, summary, colours = chartColours }: { days: Ch
             onMouseEnter={() => setActive(i)} onFocus={() => setActive(i)} onBlur={() => setActive(null)}/>
         </g>
       })}
-      <line x1={left} x2={W - right} y1={y(0)} y2={y(0)} stroke="#C9D2E1" strokeWidth="1"/>
+      <line x1={left} x2={W - right} y1={y(0)} y2={y(0)} className="chart-base" strokeWidth="1"/>
     </svg>
     {shown && active !== null && <div className="chart-tip" role="status"
       style={{ left: `${((left + slot * active + slot / 2) / W) * 100}%`, transform: `translateX(${active < days.length * 0.15 ? '0' : active > days.length * 0.85 ? '-100%' : '-50%'})` }}>

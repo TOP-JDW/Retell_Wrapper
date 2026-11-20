@@ -9,7 +9,7 @@ import { Flash } from '../../../components/Flash'
 import { SubmitButton } from '../../../components/SubmitButton'
 import { ClientBrandingForm } from '../../../components/ClientBrandingForm'
 import { defaultAccent, logoUrl } from '../../../../lib/branding'
-import { deleteClient, renameClient, saveClientBranding } from '../actions'
+import { deleteClient, renameClient, saveClientBranding, setClientRecordings } from '../actions'
 import { clientNotices, clientProblems } from '../messages'
 
 export default async function Client({params, searchParams}: {params: Promise<{id: string}>; searchParams: Promise<{notice?: string; error?: string}>}) {
@@ -18,7 +18,7 @@ export default async function Client({params, searchParams}: {params: Promise<{i
   const {notice, error} = await searchParams
   const {db, membership} = await member()
   const isStaff = membership.role === 'owner' || membership.role === 'admin'
-  const {data: client, error: loadError} = await db.from('clients').select('id,name')
+  const {data: client, error: loadError} = await db.from('clients').select('id,name,recordings_for_client')
     .eq('id', id).eq('workspace_id', membership.workspace_id).maybeSingle()
   if (loadError) throw new Error('Client could not load.')
   if (!client) notFound()
@@ -61,6 +61,19 @@ export default async function Client({params, searchParams}: {params: Promise<{i
         ? <ClientBrandingForm clientId={client.id} action={saveClientBranding}
             initial={{displayName: branding?.display_name ?? client.name, accent: branding?.accent_colour ?? defaultAccent, logo}}/>
         : <p className="hint">{branding ? `Shown to this client as ${branding.display_name}, in ${branding.accent_colour}.` : 'No branding set yet. An owner or admin can set it.'}</p>}
+    </section>
+
+    <section className="panel panel-body" aria-labelledby="access-title">
+      <div className="section-head"><h2 id="access-title">Recordings</h2></div>
+      {isStaff
+        ? <form action={setClientRecordings} className="stack-tight">
+            <input type="hidden" name="client_id" value={client.id}/>
+            <label className="check"><input type="checkbox" name="recordings" defaultChecked={client.recordings_for_client}/>
+              Let {client.name} play call recordings and read transcripts</label>
+            <p className="hint">Off by default. It applies when client logins arrive, and you can try it now with Preview as client. Recordings are always played through this portal, never as a Retell link.</p>
+            <div><SubmitButton className="quiet" pending="Saving…">Save</SubmitButton></div>
+          </form>
+        : <p className="hint">{client.recordings_for_client ? `${client.name} can play call recordings and read transcripts.` : `${client.name} cannot play call recordings or read transcripts. An owner or admin can change this.`}</p>}
     </section>
 
     <section>

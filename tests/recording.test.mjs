@@ -40,9 +40,14 @@ test('the recording relay checks sign-in, role and workspace before asking Retel
   assert.match(call, /Range: range/)
 })
 
-test('the call page asks Retell only for owners and admins', async () => {
+test('recordings and transcripts are read from Retell only for owners and admins', async () => {
   const page = await readFile(new URL('../app/(platform)/calls/[id]/page.tsx', import.meta.url), 'utf8')
-  const guard = page.indexOf('if (isStaff) {')
-  assert.ok(guard > 0 && guard < page.indexOf('retell().getCall('))
   assert.match(page, /const isStaff = membership.role === 'owner' \|\| membership.role === 'admin'/)
+  assert.match(page, /\{isStaff\n\s+\? <CallInsight /)
+  const preview = await readFile(new URL('../app/(preview)/preview/[clientId]/calls/[callId]/page.tsx', import.meta.url), 'utf8')
+  assert.match(preview, /const isStaff = membership\.role === 'owner' \|\| membership\.role === 'admin'/)
+  assert.match(preview, /\{isStaff\n\s+\? <CallInsight /)
+  assert.match(preview, /if \(!client\.recordings_for_client\) notFound\(\)/, 'the preview opens calls only when the client setting is on')
+  const insight = await readFile(new URL('../app/components/CallInsight.tsx', import.meta.url), 'utf8')
+  assert.ok(!/^['"]use client['"]/m.test(insight), 'the Retell part never runs in the browser')
 })

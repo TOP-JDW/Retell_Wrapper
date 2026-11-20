@@ -28,7 +28,7 @@ test('the preview chart pairs the client colour with a grey that stays distingui
 test('the preview only loads this client\'s own agents, in the signed-in user\'s workspace', async () => {
   const loader = await readFile(new URL('../lib/preview.ts', import.meta.url), 'utf8')
   assert.match(loader, /await member\(\)/)
-  assert.match(loader, /from\('clients'\)\.select\('id,name'\)\.eq\('id', id\)\.eq\('workspace_id', membership\.workspace_id\)/)
+  assert.match(loader, /from\('clients'\)\.select\('id,name,recordings_for_client'\)\.eq\('id', id\)\.eq\('workspace_id', membership\.workspace_id\)/)
   assert.match(loader, /from\('agents'\).*\.eq\('workspace_id', membership\.workspace_id\)\.eq\('client_id', id\)\.eq\('is_transfer_agent', false\)/)
   for (const page of ['page.tsx', 'calls/page.tsx']) {
     const text = await readFile(new URL(`../app/(preview)/preview/[clientId]/${page}`, import.meta.url), 'utf8')

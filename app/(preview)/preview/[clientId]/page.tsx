@@ -47,7 +47,7 @@ export default async function PreviewDashboard({params, searchParams}: {params: 
       <div className="section-head"><h2>Latest calls</h2>{recent.length > 0 && <Link href={`${base}/calls`}>All calls</Link>}</div>
       <div className="panel">{recent.length === 0
         ? <div className="empty"><strong>No calls yet</strong></div>
-        : <CallTable label="Latest calls" calls={recent} link={false} columns={['started', 'agent', 'status', 'length']}/>}
+        : <CallTable label="Latest calls" calls={recent} link={client.recordings_for_client ? `${base}/calls` : false} columns={['started', 'agent', 'status', 'length']}/>}
       </div>
     </section>
   </div>
