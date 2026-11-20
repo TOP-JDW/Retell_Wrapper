@@ -31,20 +31,15 @@ export function sniffLogo(bytes: Uint8Array): LogoType | null {
   return null
 }
 
-// Logos are only ever shown as images, where scripts cannot run, but unsafe SVGs are refused anyway.
-export function svgIsSafe(text: string): boolean {
-  const lower = text.toLowerCase()
-  return !/<script|<foreignobject|javascript:|\son[a-z]+\s*=|<!entity|<iframe|<object|<embed/.test(lower)
-    && !/(href|src)\s*=\s*["']?\s*(https?:|\/\/|data:)/.test(lower)
-}
-
-export type LogoCheck = { ok: true; mime: LogoType; base64: string } | { ok: false; problem: 'logo_size' | 'logo_type' | 'logo_unsafe' }
+// New logos must be PNG, JPEG or WebP. SVG files can carry scripts and cannot be checked reliably with simple
+// rules, so they are refused. An SVG saved before this change still shows, only ever through <img>, where scripts do not run.
+export type LogoCheck = { ok: true; mime: Exclude<LogoType, 'image/svg+xml'>; base64: string } | { ok: false; problem: 'logo_size' | 'logo_type' | 'logo_svg' }
 
 export function checkLogo(bytes: Uint8Array): LogoCheck {
   if (bytes.length === 0 || bytes.length > maximumLogoBytes) return { ok: false, problem: 'logo_size' }
   const mime = sniffLogo(bytes)
   if (!mime) return { ok: false, problem: 'logo_type' }
-  if (mime === 'image/svg+xml' && !svgIsSafe(new TextDecoder().decode(bytes))) return { ok: false, problem: 'logo_unsafe' }
+  if (mime === 'image/svg+xml') return { ok: false, problem: 'logo_svg' }
   let binary = ''
   for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
   return { ok: true, mime, base64: btoa(binary) }

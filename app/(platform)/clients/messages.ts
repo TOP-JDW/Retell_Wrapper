@@ -16,6 +16,6 @@ export const clientProblems: Record<string, string> = {
   brand_name: 'Enter a display name of up to 80 characters.',
   colour: 'Choose a colour as a six-digit hex code, such as #2D3C97.',
   logo_size: 'The logo must be an image of 256 KB or less.',
-  logo_type: 'The logo must be a PNG, JPEG, WebP or SVG image.',
-  logo_unsafe: 'That SVG contains scripts or outside links, so it cannot be used. Export a plain SVG or a PNG instead.'
+  logo_type: 'The logo must be a PNG, JPEG or WebP image.',
+  logo_svg: 'SVG logos are not accepted, for security. Export the logo as a PNG and upload that.'
 }

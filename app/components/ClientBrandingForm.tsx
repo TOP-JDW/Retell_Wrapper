@@ -33,6 +33,7 @@ export function ClientBrandingForm({ clientId, initial, action }: Props) {
     setFileChosen(Boolean(file))
     if (!file) { setLogo(initial.logo); return }
     if (file.size > maximumLogoBytes) { setFileProblem('This file is over 256 KB, so it will not be accepted.'); return }
+    if (file.type === 'image/svg+xml' || /\.svg$/i.test(file.name)) { setFileProblem('SVG logos are not accepted. Export the logo as a PNG.'); return }
     setRemove(false)
     setLogo(URL.createObjectURL(file))
   }
@@ -48,8 +49,8 @@ export function ClientBrandingForm({ clientId, initial, action }: Props) {
         </span>
       </label>
       {light && <p className="hint">This colour is light, so button text on it will be dark. Thin lines in it may be hard to see.</p>}
-      <label>Logo<input type="file" name="logo" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={e => chooseFile(e.target.files?.[0])}/></label>
-      <p className="hint">PNG, JPEG, WebP or SVG, 256 KB at most. A logo made for a white background works best.</p>
+      <label>Logo<input type="file" name="logo" accept="image/png,image/jpeg,image/webp" onChange={e => chooseFile(e.target.files?.[0])}/></label>
+      <p className="hint">PNG, JPEG or WebP, 256 KB at most. A logo made for a white background works best.</p>
       {fileProblem && <p role="alert" className="notice problem">{fileProblem}</p>}
       {initial.logo && <label className="check"><input type="checkbox" name="remove_logo" checked={remove} onChange={e => setRemove(e.target.checked)}/>Remove the current logo</label>}
       <div className="form-actions"><SubmitButton pending="Saving…">Save branding</SubmitButton>{dirty && <span className="unsaved">Unsaved changes</span>}</div>

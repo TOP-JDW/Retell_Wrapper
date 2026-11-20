@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createDb, as, ids } from './setup.mjs'
-import { checkLogo, contrast, logoUrl, maximumLogoBytes, parseAccent, parseDisplayName, sniffLogo, svgIsSafe, textOn } from '../lib/branding.ts'
+import { checkLogo, contrast, logoUrl, maximumLogoBytes, parseAccent, parseDisplayName, sniffLogo, textOn } from '../lib/branding.ts'
 
 const { a, b, viewerA } = ids
 const png = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13])
@@ -80,12 +80,9 @@ test('logos are judged by their content, not their name', () => {
   assert.deepEqual(checkLogo(svg('just text')), { ok: false, problem: 'logo_type' })
 })
 
-test('SVG logos with scripts, events or outside links are refused', () => {
-  assert.equal(svgIsSafe('<svg><circle r="4" fill="#0E7C66"/></svg>'), true)
-  for (const bad of ['<svg><script>alert(1)</script></svg>', '<svg onload="x()"></svg>', '<svg><a href="javascript:x()"/></svg>',
-    '<svg><image href="https://example.com/t.png"/></svg>', '<svg><foreignObject></foreignObject></svg>', '<!DOCTYPE x [<!ENTITY a "b">]><svg/>'])
-    assert.equal(svgIsSafe(bad), false, bad)
-  assert.deepEqual(checkLogo(svg('<svg onload="x()"></svg>')), { ok: false, problem: 'logo_unsafe' })
+test('SVG logos are refused, even ones that look harmless', () => {
+  for (const file of ['<svg><circle r="4" fill="#0E7C66"/></svg>', '<svg onload="x()"></svg>', '<?xml version="1.0"?><svg/>', '\uFEFF  <SVG/>'])
+    assert.deepEqual(checkLogo(svg(file)), { ok: false, problem: 'logo_svg' }, file)
 })
 
 test('button text stays readable on any client colour', () => {
