@@ -4,7 +4,7 @@ const identifier = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 const datePattern = /^(\d{4})-(\d{2})-(\d{2})$/
 export const pageSize = 100
 
-export type CallFilters = { client: string | 'none' | null; agent: string | null; from: string | null; to: string | null; page: number }
+export type CallFilters = { client: string | 'none' | null; agent: string | null; from: string | null; to: string | null; page: number; transfers: boolean }
 
 function validDate(value: unknown): string | null {
   if (typeof value !== 'string') return null
@@ -27,7 +27,9 @@ export function parseCallFilters(query: Record<string, string | string[] | undef
     client: client === 'none' ? 'none' : client && identifier.test(client) ? client.toLowerCase() : null,
     agent: agent && identifier.test(agent) ? agent.toLowerCase() : null,
     from, to,
-    page: Number.isSafeInteger(page) && page >= 1 && page <= 10_000 ? page : 1
+    page: Number.isSafeInteger(page) && page >= 1 && page <= 10_000 ? page : 1,
+    // Calls handled by transfer agents are hidden unless asked for, as transfer agents are on My Agents.
+    transfers: one('transfers') === '1'
   }
 }
 
@@ -38,11 +40,12 @@ export function filterQuery(filters: CallFilters, changes: Partial<CallFilters> 
   if (next.agent) params.set('agent', next.agent)
   if (next.from) params.set('from', next.from)
   if (next.to) params.set('to', next.to)
+  if (next.transfers) params.set('transfers', '1')
   if (next.page > 1) params.set('page', String(next.page))
   const text = params.toString()
   return text ? `?${text}` : ''
 }
 
 export function isFiltered(filters: CallFilters): boolean {
-  return Boolean(filters.client || filters.agent || filters.from || filters.to)
+  return Boolean(filters.client || filters.agent || filters.from || filters.to || filters.transfers)
 }

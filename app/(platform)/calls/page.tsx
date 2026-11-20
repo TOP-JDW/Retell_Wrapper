@@ -22,11 +22,23 @@ export default async function Calls({searchParams}: {searchParams: Promise<Recor
   let agentIds: string[] | undefined
   if (filters.client) agentIds = agents.filter(agent => filters.client === 'none' ? !agent.client_id : agent.client_id === filters.client).map(agent => agent.id)
   if (filters.agent) agentIds = (agentIds ?? [filters.agent]).filter(id => id === filters.agent)
-  const {rows, count} = await findCalls(db, workspace, {
-    limit: pageSize, offset: (filters.page - 1) * pageSize, agentIds, count: true,
+
+  // Transfer agents are hidden on My Agents, so their calls are hidden here too, unless asked for
+  // or a transfer agent was chosen in the Agent filter.
+  const transferIds = new Set(agents.filter(agent => agent.is_transfer_agent).map(agent => agent.id))
+  const hideTransfers = !filters.transfers && !(filters.agent && transferIds.has(filters.agent)) && transferIds.size > 0
+  const inScope = agentIds ?? agents.map(agent => agent.id)
+  const hiddenIds = hideTransfers ? inScope.filter(id => transferIds.has(id)) : []
+  if (hideTransfers) agentIds = inScope.filter(id => !transferIds.has(id))
+
+  const range = {
     fromTs: filters.from ? londonMidnight(filters.from).toISOString() : undefined,
     toTs: filters.to ? londonMidnight(addDays(filters.to, 1)).toISOString() : undefined
-  })
+  }
+  const [{rows, count}, hidden] = await Promise.all([
+    findCalls(db, workspace, {limit: pageSize, offset: (filters.page - 1) * pageSize, agentIds, count: true, ...range}),
+    hiddenIds.length > 0 ? findCalls(db, workspace, {limit: 1, agentIds: hiddenIds, count: true, ...range}).then(r => r.count) : Promise.resolve(0)
+  ])
   const first = count === 0 ? 0 : (filters.page - 1) * pageSize + 1
   const last = Math.min(count, filters.page * pageSize)
   const pages = Math.max(1, Math.ceil(count / pageSize))
@@ -45,10 +57,14 @@ export default async function Calls({searchParams}: {searchParams: Promise<Recor
       </select></label>
       <label>From<input type="date" name="from" defaultValue={filters.from ?? ''}/></label>
       <label>To<input type="date" name="to" defaultValue={filters.to ?? ''}/></label>
+      <label className="check filter-check"><input type="checkbox" name="transfers" value="1" defaultChecked={filters.transfers}/>Show transfer calls</label>
       <div className="filter-actions"><button>Apply</button>{isFiltered(filters) && <Link href="/calls">Clear</Link>}</div>
     </form>
 
-    <p className="result-count" role="status">{count === 0 ? 'No calls match.' : `Showing ${first.toLocaleString('en-GB')} to ${last.toLocaleString('en-GB')} of ${count.toLocaleString('en-GB')} calls`}</p>
+    <p className="result-count" role="status">
+      {count === 0 ? 'No calls match.' : `Showing ${first.toLocaleString('en-GB')} to ${last.toLocaleString('en-GB')} of ${count.toLocaleString('en-GB')} calls.`}
+      {hidden > 0 && <> {hidden.toLocaleString('en-GB')} transfer {hidden === 1 ? 'call is' : 'calls are'} hidden. <Link href={`/calls${filterQuery(filters, {transfers: true, page: 1})}`}>Show them</Link></>}
+    </p>
 
     <div className="panel">{rows.length === 0
       ? <div className="empty"><strong>{isFiltered(filters) ? 'No calls match these filters' : 'No calls yet'}</strong>
@@ -59,11 +75,11 @@ export default async function Calls({searchParams}: {searchParams: Promise<Recor
           <tbody>{rows.map(call => <tr key={call.id}>
             <td><Link className="row-link" href={`/calls/${call.id}`}>{formatTime(call.started_at)}</Link></td>
             <td className="primary-cell">{call.agent_name}</td>
-            <td className={call.client_name ? '' : 'unlinked'}>{call.client_name ?? 'No client'}</td>
+            <td className={call.client_name ? 'wrap' : 'wrap unlinked'}>{call.client_name ?? 'No client'}</td>
             <td><span className={`pill ${callTone(call.call_status)}`}>{capitalise(plainWords(call.call_status))}</span></td>
             <td>{call.call_type === 'web_call' ? 'Web' : call.direction ? capitalise(plainWords(call.direction)) : 'Unknown'}</td>
             <td className="num">{formatDuration(call.duration_ms)}</td>
-            <td className="muted">{capitalise(plainWords(call.disconnection_reason))}</td>
+            <td className="muted wrap">{capitalise(plainWords(call.disconnection_reason))}</td>
           </tr>)}</tbody>
         </table></div>}
     </div>
