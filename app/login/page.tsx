@@ -1,0 +1,9 @@
+import { signIn } from './actions'
+export default async function Login({searchParams}: {searchParams: Promise<{error?: string}>}) {
+  const {error} = await searchParams
+  return <main className="card"><small>VOICE OPERATIONS</small><h1>Sign in</h1>
+    <p>Use your workspace email and password.</p>
+    <form action={signIn}><label>Email address<input type="email" autoComplete="username" name="email" required maxLength={320}/></label>
+    <label>Password<input type="password" name="password" autoComplete="current-password" required maxLength={1024}/></label>
+    {error && <p role="alert">Sign-in failed. Check your details and try again.</p>}<button>Sign in</button></form></main>
+}

@@ -1,0 +1,1 @@
+Use British English in the interface and documentation. Keep Phase 1 development isolated from live Retell. Use the dedicated Supabase development project. Keep membership checks on the server and enforce access through PostgreSQL row-level security. Run npm test, npm run build and npm run typecheck before submitting changes.
