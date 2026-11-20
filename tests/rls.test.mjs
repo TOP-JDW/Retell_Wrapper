@@ -60,14 +60,74 @@ test('viewers can read workspace data but never write it', async () => {
   } finally { await db.close() }
 })
 
-test('agents and calls are read-only for application users, and nobody can delete', async () => {
+test('only owners write agents and calls, and nobody can delete them', async () => {
   const db = await createDb()
   try {
-    for (const user of [a, b, viewerA]) {
-      await assert.rejects(as(db, user, `insert into agents(workspace_id,name) values ('${a}','x')`), /permission denied/)
-      await assert.rejects(as(db, user, `insert into calls(workspace_id,agent_id,retell_call_id,started_at) values ('${a}','${a}','c',now())`), /permission denied/)
-      await assert.rejects(as(db, user, 'delete from clients'), /permission denied/)
+    const agent = ws => `insert into agents(workspace_id,name,retell_agent_id) values ('${ws}','x','agent_x')`
+    const call = ws => `insert into calls(workspace_id,agent_id,retell_call_id,started_at) values ('${ws}','${ws}','call_x',now())`
+    await assert.rejects(as(db, b, agent(b)), /row-level security/)
+    await assert.rejects(as(db, viewerA, agent(a)), /row-level security/)
+    await assert.rejects(as(db, b, call(b)), /row-level security/)
+    await assert.rejects(as(db, viewerA, call(a)), /row-level security/)
+    for (const user of [b, viewerA]) {
+      assert.equal((await as(db, user, `update agents set name='x' returning *`)).rows.length, 0)
+      assert.equal((await as(db, user, `update calls set call_status='x' returning *`)).rows.length, 0)
     }
+    for (const user of [a, b, viewerA]) {
+      for (const table of ['clients', 'agents', 'calls']) await assert.rejects(as(db, user, `delete from ${table}`), /permission denied/)
+    }
+  } finally { await db.close() }
+})
+
+test('owners can import and re-import agents and calls for their own workspace', async () => {
+  const db = await createDb()
+  try {
+    const upsertAgent = (name, suspended) => as(db, a, `insert into agents(workspace_id,name,retell_agent_id,is_suspended,retell_modified_at)
+      values ('${a}','${name}','agent_1',${suspended},'2026-01-01') on conflict (retell_agent_id) do update
+      set workspace_id=excluded.workspace_id, name=excluded.name, is_suspended=excluded.is_suspended, retell_modified_at=excluded.retell_modified_at returning id`)
+    const first = (await upsertAgent('First name', false)).rows[0].id
+    const second = (await upsertAgent('New name', true)).rows[0].id
+    assert.equal(first, second)
+    const stored = (await as(db, a, `select name,is_suspended from agents where retell_agent_id='agent_1'`)).rows
+    assert.deepEqual(stored, [{ name: 'New name', is_suspended: true }])
+
+    const upsertCall = status => as(db, a, `insert into calls(workspace_id,agent_id,retell_call_id,started_at,ended_at,call_status,call_type,direction,disconnection_reason,agent_version,duration_ms)
+      values ('${a}','${first}','call_1','2026-01-01 10:00','2026-01-01 10:05','${status}','phone_call','inbound','user_hangup',3,300000)
+      on conflict (retell_call_id) do update set call_status=excluded.call_status, workspace_id=excluded.workspace_id, agent_id=excluded.agent_id,
+      retell_call_id=excluded.retell_call_id, started_at=excluded.started_at, ended_at=excluded.ended_at, call_type=excluded.call_type, direction=excluded.direction,
+      disconnection_reason=excluded.disconnection_reason, agent_version=excluded.agent_version, duration_ms=excluded.duration_ms returning id`)
+    await upsertCall('ongoing')
+    await upsertCall('ended')
+    assert.deepEqual((await as(db, a, 'select call_status from calls')).rows, [{ call_status: 'ended' }])
+    assert.equal(await rows(db, viewerA, 'select * from calls'), 1)
+    assert.equal(await rows(db, b, 'select * from calls'), 0)
+  } finally { await db.close() }
+})
+
+test('an owner cannot import into, take over or read another workspace', async () => {
+  const db = await createDb()
+  try {
+    await assert.rejects(as(db, a, `insert into agents(workspace_id,name,retell_agent_id) values ('${b}','x','agent_b')`), /row-level security/)
+    await db.exec(`insert into agents(workspace_id,name,retell_agent_id) values ('${b}','B only','agent_shared')`)
+    // Importing an agent that already belongs to workspace B must fail rather than overwrite it.
+    await assert.rejects(as(db, a, `insert into agents(workspace_id,name,retell_agent_id) values ('${a}','Hijack','agent_shared')
+      on conflict (retell_agent_id) do update set name=excluded.name, workspace_id=excluded.workspace_id`), /row-level security/)
+    assert.equal((await db.query(`select name from agents where retell_agent_id='agent_shared'`)).rows[0].name, 'B only')
+    // A call cannot point at another workspace's agent.
+    await assert.rejects(as(db, a, `insert into calls(workspace_id,agent_id,retell_call_id,started_at) values ('${a}','${b}','call_cross',now())`), /foreign key/)
+    // Moving a row into another workspace is refused.
+    await assert.rejects(as(db, a, `update agents set workspace_id='${b}' where id='${a}'`), /row-level security/)
+    await assert.rejects(as(db, a, `update agents set id='${ids.newcomer}' where id='${a}'`), /permission denied/)
+    await assert.rejects(as(db, a, `update agents set client_id='${a}' where id='${a}'`), /permission denied/)
+  } finally { await db.close() }
+})
+
+test('imported call data is checked by the database', async () => {
+  const db = await createDb()
+  try {
+    await assert.rejects(as(db, a, `insert into calls(workspace_id,agent_id,retell_call_id,started_at,duration_ms) values ('${a}','${a}','c1',now(),-5)`), /check constraint/)
+    await assert.rejects(as(db, a, `insert into calls(workspace_id,agent_id,retell_call_id,started_at,ended_at) values ('${a}','${a}','c2','2026-01-02','2026-01-01')`), /check constraint/)
+    await assert.rejects(as(db, a, `insert into calls(workspace_id,agent_id,started_at) values ('${a}','${a}',now())`), /not-null|null value/)
   } finally { await db.close() }
 })
 

@@ -17,15 +17,13 @@ export default async function Section({params}: {params: Promise<{section: strin
     return <><h1>Dashboard</h1><div className="metrics">{['Agents','Calls','Clients'].map((label,i) => <article key={label}><small>{label}</small><b>{totals[i]}</b></article>)}</div></>
   }
   const lists = {
-    agents: ['agents','name','No agents have been imported.'],
-    calls: ['calls','started_at','No calls have been imported.'],
     clients: ['clients','name','No clients have been added.'],
     settings: ['branding','display_name','Workspace branding has not been set.']
   } as const
   const list = lists[section as keyof typeof lists]
   if (!list) notFound()
   const [table,column,empty] = list
-  const {data,error} = await db.from(table).select('*').eq('workspace_id',workspace).order(column,{ascending:section !== 'calls'}).limit(100)
+  const {data,error} = await db.from(table).select('*').eq('workspace_id',workspace).order(column,{ascending:true}).limit(100)
   if (error) throw new Error('Workspace data could not load.')
   return <><h1>{entry[1]}</h1>{data.length === 0 ? <p>{empty}</p> :
     <ul>{data.map(row => <li key={row.id ?? workspace}>{String(row[column])}</li>)}</ul>}</>
