@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
+import { cache } from 'react'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
@@ -20,7 +21,8 @@ export async function database(writable = false) {
   } })
 }
 
-export async function member() {
+// Cached per request so the layout and the page share one sign-in check and one membership lookup.
+export const member = cache(async () => {
   const db = await database()
   const { data: { user } } = await db.auth.getUser()
   if (!user) redirect('/login')
@@ -28,4 +30,4 @@ export async function member() {
   if (error) throw new Error('Workspace lookup failed.')
   if (!data) redirect('/access')
   return { db, membership: data }
-}
+})
