@@ -42,11 +42,11 @@ test('missing days are filled with zero and totals add up', () => {
 test('call filters accept only real values and keep the date range in order', () => {
   const id = '00000000-0000-4000-8000-000000000001'
   assert.deepEqual(parseCallFilters({ client: id, agent: id.toUpperCase(), from: '2026-11-01', to: '2026-11-20', page: '2' }),
-    { client: id, agent: id, from: '2026-11-01', to: '2026-11-20', page: 2, transfers: false })
-  assert.deepEqual(parseCallFilters({ from: '2026-11-20', to: '2026-11-01' }), { client: null, agent: null, from: '2026-11-01', to: '2026-11-20', page: 1, transfers: false })
+    { client: id, agent: id, from: '2026-11-01', to: '2026-11-20', page: 2, transfers: false, sort: 'started', dir: 'desc' })
+  assert.deepEqual(parseCallFilters({ from: '2026-11-20', to: '2026-11-01' }), { client: null, agent: null, from: '2026-11-01', to: '2026-11-20', page: 1, transfers: false, sort: 'started', dir: 'desc' })
   assert.deepEqual(parseCallFilters({ client: 'none' }).client, 'none')
   for (const bad of [{ client: 'x' }, { agent: "1' or 1=1" }, { from: '2026-02-30' }, { to: '20-11-2026' }, { page: '0' }, { page: '-1' }, { page: 'abc' }])
-    assert.deepEqual(parseCallFilters(bad), { client: null, agent: null, from: null, to: null, page: 1, transfers: false }, JSON.stringify(bad))
+    assert.deepEqual(parseCallFilters(bad), { client: null, agent: null, from: null, to: null, page: 1, transfers: false, sort: 'started', dir: 'desc' }, JSON.stringify(bad))
   assert.deepEqual(parseCallFilters({ client: [id, 'other'] }).client, id)
   assert.equal(isDate('2024-02-29'), true)
   assert.equal(isDate('2026-02-29'), false)

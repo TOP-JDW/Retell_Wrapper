@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { AuthShell } from '../../components/AuthShell'
 import { acceptInvite } from './actions'
+import { SubmitButton } from '../../components/SubmitButton'
 
 // The invitation email links here. The token is only used when the person presses the button,
 // because email security scanners open links automatically and would otherwise use it up.
@@ -14,6 +15,6 @@ export default async function Confirm({searchParams}: {searchParams: Promise<{to
   </AuthShell>
   return <AuthShell>
     <header><h1>Accept your invitation</h1><p>Next, you choose a password and join the workspace.</p></header>
-    <form action={acceptInvite}><input type="hidden" name="token_hash" value={token_hash}/><button>Accept invitation</button></form>
+    <form action={acceptInvite}><input type="hidden" name="token_hash" value={token_hash}/><SubmitButton pending="Accepting…">Accept invitation</SubmitButton></form>
   </AuthShell>
 }

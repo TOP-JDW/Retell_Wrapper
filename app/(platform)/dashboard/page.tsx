@@ -1,9 +1,10 @@
 import Link from 'next/link'
+import { CallTable } from '../../components/CallTable'
+import { DataTable } from '../../components/DataTable'
 import { member } from '../../../lib/auth'
 import { agentNames, latestCalls } from '../../../lib/calls'
-import { formatDuration, formatPercent, formatTalkTime, formatTime, plainWords } from '../../../lib/format'
+import { formatDuration, formatPercent, formatTalkTime } from '../../../lib/format'
 import { fillDays, parsePeriod, periodRange, periods, shortDate, summarise, type DayStat } from '../../../lib/period'
-import { callTone, capitalise } from '../../../lib/status'
 import { chartColours } from '../../../lib/chart'
 import { CallsChart } from '../../components/CallsChart'
 
@@ -57,31 +58,30 @@ export default async function Dashboard({searchParams}: {searchParams: Promise<{
             summary={`Calls per day for the last ${days} days: ${totals.total} calls, ${totals.connected} connected. Busiest day ${shortDate(busiest.day)} with ${busiest.total} calls.`}/>
           <details className="table-view">
             <summary>Show as a table</summary>
-            <div className="table-scroll"><table>
-              <thead><tr><th>Day</th><th className="num">Calls</th><th className="num">Connected</th><th className="num">Not connected</th></tr></thead>
-              <tbody>{series.filter(d => d.total > 0).map(d => <tr key={d.day}>
-                <td>{shortDate(d.day)}</td><td className="num">{d.total}</td><td className="num">{d.connected}</td><td className="num">{d.total - d.connected}</td>
-              </tr>)}</tbody>
-            </table></div>
+            <DataTable label="Calls per day" search="never" columns={[{label: 'Day', first: 'desc'}, {label: 'Calls', className: 'num', first: 'desc'}, {label: 'Connected', className: 'num', first: 'desc'}, {label: 'Not connected', className: 'num', first: 'desc'}]}
+              rows={series.filter(d => d.total > 0).map(d => ({key: d.day, cells: [
+                {value: d.day, text: shortDate(d.day), content: shortDate(d.day)}, {value: d.total, className: 'num', content: d.total},
+                {value: d.connected, className: 'num', content: d.connected}, {value: d.total - d.connected, className: 'num', content: d.total - d.connected}]}))}/>
           </details>
         </section>
 
         <section>
           <div className="section-head"><h2>Busiest agents</h2></div>
-          <div className="panel"><div className="table-scroll"><table>
-            <thead><tr><th>Agent</th><th className="num">Calls</th><th className="num">Connected</th><th className="num">Average length</th></tr></thead>
-            <tbody>{topAgents.map(row => {
+          <div className="panel"><DataTable label="Busiest agents" searchHint="Search agents or clients"
+            columns={[{label: 'Agent'}, {label: 'Calls', className: 'num', first: 'desc'}, {label: 'Connected', className: 'num', first: 'desc'}, {label: 'Average length', className: 'num', first: 'desc'}]}
+            rows={topAgents.map(row => {
               const agent = agents.get(row.agent_id)
               const client = agent?.client_id ? clients.get(agent.client_id) : null
-              return <tr key={row.agent_id}>
-                <td className="primary-cell">{agent ? <Link className="row-link" href={`/agents/${row.agent_id}`}>{agent.name}</Link> : 'Unknown'}
-                  <span className="sub">{agent?.is_transfer_agent ? 'Transfer agent' : client ?? 'No client'}</span></td>
-                <td className="num">{row.total.toLocaleString('en-GB')}</td>
-                <td className="num">{formatPercent(row.total > 0 ? row.connected / row.total : null)}</td>
-                <td className="num">{row.timed > 0 ? formatDuration(row.connected_ms / row.timed) : 'None yet'}</td>
-              </tr>
-            })}</tbody>
-          </table></div></div>
+              const sub = agent?.is_transfer_agent ? 'Transfer agent' : client ?? 'No client'
+              const rate = row.total > 0 ? row.connected / row.total : null
+              const average = row.timed > 0 ? row.connected_ms / row.timed : null
+              return {key: row.agent_id, cells: [
+                {value: agent?.name ?? 'Unknown', text: `${agent?.name ?? 'Unknown'} ${sub}`, className: 'primary-cell',
+                  content: <>{agent ? <Link className="row-link" href={`/agents/${row.agent_id}`}>{agent.name}</Link> : 'Unknown'}<span className="sub">{sub}</span></>},
+                {value: row.total, text: '', className: 'num', content: row.total.toLocaleString('en-GB')},
+                {value: rate, text: '', className: 'num', content: formatPercent(rate)},
+                {value: average, text: '', className: 'num', content: average === null ? 'None yet' : formatDuration(average)}]}
+            })}/></div>
         </section>
       </>}
 
@@ -89,15 +89,7 @@ export default async function Dashboard({searchParams}: {searchParams: Promise<{
       <div className="section-head"><h2>Latest calls</h2>{recent.length > 0 && <Link href="/calls">All calls</Link>}</div>
       <div className="panel">{recent.length === 0
         ? <div className="empty"><strong>No calls yet</strong><p>Calls appear here after an owner imports them from Retell on My Agents.</p></div>
-        : <div className="table-scroll"><table>
-            <thead><tr><th>Started</th><th>Agent</th><th>Client</th><th>Status</th><th className="num">Length</th></tr></thead>
-            <tbody>{recent.map(call => <tr key={call.id}>
-              <td><Link className="row-link" href={`/calls/${call.id}`}>{formatTime(call.started_at)}</Link></td><td className="primary-cell">{call.agent_name}</td>
-              <td className={call.client_name ? '' : 'unlinked'}>{call.client_name ?? 'No client'}</td>
-              <td><span className={`pill ${callTone(call.call_status)}`}>{capitalise(plainWords(call.call_status))}</span></td>
-              <td className="num">{formatDuration(call.duration_ms)}</td>
-            </tr>)}</tbody>
-          </table></div>}
+        : <CallTable label="Latest calls" calls={recent} columns={['started', 'agent', 'client', 'status', 'length']}/>}
       </div>
     </section>
   </div>

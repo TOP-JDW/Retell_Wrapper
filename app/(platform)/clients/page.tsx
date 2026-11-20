@@ -3,6 +3,9 @@ import { member } from '../../../lib/auth'
 import { maximumClientName } from '../../../lib/clients'
 import { addClient } from './actions'
 import { clientNotices, clientProblems } from './messages'
+import { DataTable } from '../../components/DataTable'
+import { Flash } from '../../components/Flash'
+import { SubmitButton } from '../../components/SubmitButton'
 
 export default async function Clients({searchParams}: {searchParams: Promise<{notice?: string; error?: string}>}) {
   const {notice, error} = await searchParams
@@ -24,26 +27,23 @@ export default async function Clients({searchParams}: {searchParams: Promise<{no
   return <div className="stack">
     <header className="page-head"><div><h1>Client Management</h1>
       <p>The businesses your agents work for. Open a client to see its agents and calls.</p></div></header>
-    {notice && clientNotices[notice] && <p role="status" className="notice success">{clientNotices[notice]}</p>}
-    {error && clientProblems[error] && <p role="alert" className="notice problem">{clientProblems[error]}</p>}
+    <Flash success={notice && clientNotices[notice]} problem={error && clientProblems[error]}/>
     <div className="panel">{clients.length === 0
       ? <div className="empty"><strong>No clients yet</strong>
           <p>{isStaff ? 'Add your first client below, then link its agents on My Agents.' : 'An owner or admin can add clients.'}</p></div>
-      : <div className="table-scroll"><table>
-          <thead><tr><th>Client</th><th className="num">Agents</th></tr></thead>
-          <tbody>{clients.map(client => <tr key={client.id}>
-            <td className="primary-cell"><span className="client-name">
+      : <DataTable label="Clients" searchHint="Search clients" columns={[{label: 'Client'}, {label: 'Agents', className: 'num', first: 'desc'}]}
+          rows={clients.map(client => ({key: client.id, cells: [
+            {value: client.name, className: 'primary-cell', content: <span className="client-name">
               <i className="swatch" style={{background: accentOf.get(client.id) ?? 'transparent'}} title={accentOf.has(client.id) ? `Brand colour ${accentOf.get(client.id)}` : 'No branding yet'}/>
-              <Link className="row-link" href={`/clients/${client.id}`}>{client.name}</Link></span></td>
-            <td className="num">{agentCounts.get(client.id) ?? 0}</td>
-          </tr>)}</tbody>
-        </table></div>}
+              <Link className="row-link" href={`/clients/${client.id}`}>{client.name}</Link></span>},
+            {value: agentCounts.get(client.id) ?? 0, text: '', className: 'num', content: agentCounts.get(client.id) ?? 0}
+          ]}))}/>}
     </div>
     {isStaff && <section className="panel panel-body" aria-labelledby="add-client">
       <div className="section-head"><h2 id="add-client">Add a client</h2></div>
       <form action={addClient} className="add-row">
         <label>Client name<input name="name" required maxLength={maximumClientName} autoComplete="off"/></label>
-        <button>Add client</button>
+        <SubmitButton pending="Adding…">Add client</SubmitButton>
       </form>
     </section>}
   </div>

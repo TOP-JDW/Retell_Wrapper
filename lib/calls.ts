@@ -4,9 +4,10 @@ export type CallListRow = {
   id: string; agent_id: string; started_at: string; call_status: string | null; call_type: string | null
   direction: string | null; disconnection_reason: string | null; duration_ms: number | null; agent_name: string; client_name: string | null
 }
-type Options = { limit: number; offset?: number; agentIds?: string[]; fromTs?: string; toTs?: string; count?: boolean }
+type Options = { limit: number; offset?: number; agentIds?: string[]; fromTs?: string; toTs?: string; count?: boolean; order?: { column: string; ascending: boolean } }
+const sortable = new Set(['started_at', 'call_status', 'call_type', 'duration_ms', 'disconnection_reason'])
 
-// Calls in a workspace, newest first, with each agent's name and client. Shared by the dashboard,
+// Calls in a workspace, newest first unless another order is given, with each agent's name and client. Shared by the dashboard,
 // Call History and the client page. An empty agentIds list means no calls can match.
 export async function findCalls(db: SupabaseClient, workspace: string, options: Options): Promise<{rows: CallListRow[]; count: number}> {
   if (options.agentIds && options.agentIds.length === 0) return {rows: [], count: 0}
@@ -17,7 +18,12 @@ export async function findCalls(db: SupabaseClient, workspace: string, options: 
   if (options.agentIds) query = query.in('agent_id', options.agentIds)
   if (options.fromTs) query = query.gte('started_at', options.fromTs)
   if (options.toTs) query = query.lt('started_at', options.toTs)
-  const {data, error, count} = await query.order('started_at', {ascending: false}).range(offset, offset + options.limit - 1)
+  const order = options.order && sortable.has(options.order.column) ? options.order : {column: 'started_at', ascending: false}
+  query = query.order(order.column, {ascending: order.ascending, nullsFirst: false})
+  // Ties (and phone or web calls sorted by type) keep a stable order: newest first, then by id.
+  if (order.column === 'call_type') query = query.order('direction', {ascending: order.ascending, nullsFirst: false})
+  if (order.column !== 'started_at') query = query.order('started_at', {ascending: false})
+  const {data, error, count} = await query.order('id', {ascending: true}).range(offset, offset + options.limit - 1)
   if (error) throw new Error('Calls could not load.')
   return {rows: await withNames(db, data), count: count ?? data.length}
 }

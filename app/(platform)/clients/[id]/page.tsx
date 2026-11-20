@@ -3,9 +3,10 @@ import { notFound } from 'next/navigation'
 import { member } from '../../../../lib/auth'
 import { latestCalls } from '../../../../lib/calls'
 import { maximumClientName, parseId } from '../../../../lib/clients'
-import { formatDuration, formatTime, plainWords } from '../../../../lib/format'
-import { callTone, capitalise } from '../../../../lib/status'
-import { ConfirmButton } from '../../../components/ConfirmButton'
+import { CallTable } from '../../../components/CallTable'
+import { DataTable } from '../../../components/DataTable'
+import { Flash } from '../../../components/Flash'
+import { SubmitButton } from '../../../components/SubmitButton'
 import { ClientBrandingForm } from '../../../components/ClientBrandingForm'
 import { defaultAccent, logoUrl } from '../../../../lib/branding'
 import { deleteClient, renameClient, saveClientBranding } from '../actions'
@@ -40,20 +41,17 @@ export default async function Client({params, searchParams}: {params: Promise<{i
       </div>
     </div>
     <Link className="button" href={`/preview/${client.id}`}>Preview as client</Link></header>
-    {notice && clientNotices[notice] && <p role="status" className="notice success">{clientNotices[notice]}</p>}
-    {error && clientProblems[error] && <p role="alert" className="notice problem">{clientProblems[error]}</p>}
+    <Flash success={notice && clientNotices[notice]} problem={error && clientProblems[error]}/>
 
     <section>
       <div className="section-head"><h2>Agents</h2>{isStaff && <Link href="/agents">Link agents</Link>}</div>
       <div className="panel">{visible.length === 0
         ? <div className="empty"><strong>No agents linked</strong><p>{isStaff ? 'Choose this client for an agent on My Agents.' : 'An owner or admin can link agents to this client.'}</p></div>
-        : <table>
-            <thead><tr><th>Name</th><th>Status</th></tr></thead>
-            <tbody>{visible.map(agent => <tr key={agent.id}>
-              <td className="primary-cell"><Link className="row-link" href={`/agents/${agent.id}`}>{agent.name}</Link></td>
-              <td><span className={`pill ${agent.is_suspended ? 'warn' : 'ok'}`}>{agent.is_suspended ? 'Suspended' : 'Active'}</span></td>
-            </tr>)}</tbody>
-          </table>}
+        : <DataTable label="Agents for this client" searchHint="Search agents" columns={[{label: 'Name'}, {label: 'Status'}]}
+            rows={visible.map(agent => ({key: agent.id, cells: [
+              {value: agent.name, className: 'primary-cell', content: <Link className="row-link" href={`/agents/${agent.id}`}>{agent.name}</Link>},
+              {value: agent.is_suspended ? 'Suspended' : 'Active', content: <span className={`pill ${agent.is_suspended ? 'warn' : 'ok'}`}>{agent.is_suspended ? 'Suspended' : 'Active'}</span>}
+            ]}))}/>}
       </div>
     </section>
 
@@ -69,15 +67,7 @@ export default async function Client({params, searchParams}: {params: Promise<{i
       <div className="section-head"><h2>Latest calls</h2></div>
       <div className="panel">{calls.length === 0
         ? <div className="empty"><strong>No calls yet</strong><p>Calls taken by this client's agents appear here after an import.</p></div>
-        : <div className="table-scroll"><table>
-            <thead><tr><th>Started</th><th>Agent</th><th>Status</th><th className="num">Length</th><th>Ended because</th></tr></thead>
-            <tbody>{calls.map(call => <tr key={call.id}>
-              <td><Link className="row-link" href={`/calls/${call.id}`}>{formatTime(call.started_at)}</Link></td><td className="primary-cell">{call.agent_name}</td>
-              <td><span className={`pill ${callTone(call.call_status)}`}>{capitalise(plainWords(call.call_status))}</span></td>
-              <td className="num">{formatDuration(call.duration_ms)}</td>
-              <td className="muted">{capitalise(plainWords(call.disconnection_reason))}</td>
-            </tr>)}</tbody>
-          </table></div>}
+        : <CallTable label="Latest calls for this client" calls={calls} columns={['started', 'agent', 'status', 'length', 'ended']}/>}
       </div>
     </section>
 
@@ -86,12 +76,12 @@ export default async function Client({params, searchParams}: {params: Promise<{i
       <form action={renameClient} className="add-row">
         <input type="hidden" name="client_id" value={client.id}/>
         <label>Client name<input name="name" defaultValue={client.name} required maxLength={maximumClientName} autoComplete="off"/></label>
-        <button className="quiet">Save name</button>
+        <SubmitButton className="quiet" pending="Saving…">Save name</SubmitButton>
       </form>
       <form action={deleteClient} className="danger-row">
         <input type="hidden" name="client_id" value={client.id}/>
         <p className="hint">Deleting the client keeps its agents and calls. The agents are no longer linked to a client.</p>
-        <ConfirmButton className="danger" message={`Delete ${client.name}? Its agents and calls are kept.`}>Delete client</ConfirmButton>
+        <SubmitButton className="danger" pending="Deleting…" confirm={`Delete ${client.name}? Its agents and calls are kept.`}>Delete client</SubmitButton>
       </form>
     </section>}
   </div>

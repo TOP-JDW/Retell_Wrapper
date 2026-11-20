@@ -5,6 +5,7 @@ import { capitalise } from '../../lib/status'
 import { Nav } from '../components/Nav'
 import { QuickSearch } from '../components/QuickSearch'
 import { signOut } from '../login/actions'
+import { SubmitButton } from '../components/SubmitButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,7 +21,7 @@ export default async function Platform({children}: {children: ReactNode}) {
       <Nav items={sections}/>
       <div className="sidebar-foot">
         <div className="sidebar-user"><strong>{membership.email ?? 'Signed in'}</strong><span>{capitalise(membership.role)}</span></div>
-        <form action={signOut}><button>Sign out</button></form>
+        <form action={signOut}><SubmitButton pending="Signing out…">Sign out</SubmitButton></form>
       </div>
     </aside>
     <main className="content">{children}</main>

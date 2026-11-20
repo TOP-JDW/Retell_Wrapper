@@ -3,6 +3,7 @@ import { database } from '../../lib/auth'
 import { minimumPasswordLength, maximumPasswordLength } from '../../lib/members'
 import { setPassword } from './actions'
 import { AuthShell } from '../components/AuthShell'
+import { SubmitButton } from '../components/SubmitButton'
 
 export const metadata = { title: 'Choose a password' }
 
@@ -24,7 +25,7 @@ export default async function SetPassword({searchParams}: {searchParams: Promise
       <label>New password<input type="password" name="password" autoComplete="new-password" required minLength={minimumPasswordLength} maxLength={maximumPasswordLength}/></label>
       <label>Confirm password<input type="password" name="confirm" autoComplete="new-password" required minLength={minimumPasswordLength} maxLength={maximumPasswordLength}/></label>
       {error && problems[error] && <p role="alert">{problems[error]}</p>}
-      <button>Save password</button>
+      <SubmitButton pending="Saving…">Save password</SubmitButton>
     </form>
   </AuthShell>
 }

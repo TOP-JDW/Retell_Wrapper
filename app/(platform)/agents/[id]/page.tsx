@@ -1,12 +1,12 @@
 import Link from 'next/link'
+import { CallTable } from '../../../components/CallTable'
 import { notFound } from 'next/navigation'
 import { member } from '../../../../lib/auth'
 import { findCalls } from '../../../../lib/calls'
 import { chartColours } from '../../../../lib/chart'
 import { parseId } from '../../../../lib/clients'
-import { formatDuration, formatPercent, formatTalkTime, formatTime, plainWords } from '../../../../lib/format'
+import { formatDuration, formatPercent, formatTalkTime, formatTime } from '../../../../lib/format'
 import { fillDays, parsePeriod, periodRange, periods, shortDate, summarise, type DayStat } from '../../../../lib/period'
-import { callTone, capitalise } from '../../../../lib/status'
 import { CallsChart } from '../../../components/CallsChart'
 
 export default async function Agent({params, searchParams}: {params: Promise<{id: string}>; searchParams: Promise<{days?: string}>}) {
@@ -67,16 +67,7 @@ export default async function Agent({params, searchParams}: {params: Promise<{id
       <div className="section-head"><h2>Latest calls</h2>{recent.rows.length > 0 && <Link href={`/calls?agent=${id}`}>All calls for this agent</Link>}</div>
       <div className="panel">{recent.rows.length === 0
         ? <div className="empty"><strong>No calls yet</strong><p>This agent's calls appear here after an import.</p></div>
-        : <div className="table-scroll"><table>
-            <thead><tr><th>Started</th><th>Status</th><th>Type</th><th className="num">Length</th><th>Ended because</th></tr></thead>
-            <tbody>{recent.rows.map(call => <tr key={call.id}>
-              <td><Link className="row-link" href={`/calls/${call.id}`}>{formatTime(call.started_at)}</Link></td>
-              <td><span className={`pill ${callTone(call.call_status)}`}>{capitalise(plainWords(call.call_status))}</span></td>
-              <td>{call.call_type === 'web_call' ? 'Web' : call.direction ? capitalise(plainWords(call.direction)) : 'Unknown'}</td>
-              <td className="num">{formatDuration(call.duration_ms)}</td>
-              <td className="muted wrap">{capitalise(plainWords(call.disconnection_reason))}</td>
-            </tr>)}</tbody>
-          </table></div>}
+        : <CallTable label={`Latest calls for ${agent.name}`} calls={recent.rows} columns={['started', 'status', 'type', 'length', 'ended']}/>}
       </div>
     </section>
   </div>
