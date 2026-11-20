@@ -52,6 +52,12 @@ Each client's page has a Branding section: a display name, a main colour and an 
 
 Logos are PNG, JPEG, WebP or SVG, up to 256 KB, checked by their contents rather than their file name, and stored in the `client_branding` table, so there is no separate file store to secure. SVGs with scripts, event handlers or outside links are refused. Branding is deleted with its client. Button text on the client's colour switches between white and near-black to stay readable.
 
+## Call recordings and transcripts
+
+Open any call from Call History, the dashboard or a client page to see its details. Owners and admins also see Retell's summary, caller mood and success flag, the recording, and the transcript as a conversation: the line being spoken is highlighted, and choosing a line plays from there. Viewers see the call details only.
+
+None of this is stored. The page asks Retell for the call each time it opens. The recording is played through the app (`/calls/{id}/recording`), which checks sign-in, role and workspace on every request, so Retell's recording link never reaches the browser and is never cached. Retell keeps call data according to each agent's data retention setting, and signed links expire after 24 hours when secure URLs are on; agree both with your data protection lead.
+
 ## Dashboard and call filters
 
 The dashboard shows the last 30 days by default, with 7 and 90 days to choose from. It shows the number of calls, the share that connected, the average length and total talk time of connected calls, calls per day, the busiest agents and the latest calls. "Connected" means Retell reports the call as ended; not connected, error and ongoing calls do not count. Days follow UK time. The figures come from two read-only database functions, `call_daily_stats` and `call_agent_stats`, which run as the signed-in user and count only their workspace.
@@ -69,4 +75,4 @@ The import copies your voice agents and your 1,000 most recent calls into the da
 
 What it keeps: agent name, whether it is suspended, whether it is a transfer agent and when it was last changed; for each call, its agent, start and end time, length, status, whether it was a web or phone call, whether a phone call was inbound or outbound, and why it ended. It does not keep phone numbers, transcripts, recordings, summaries or costs. Transfer agents are helpers that sit behind another agent. They are kept so call links stay correct, but My Agents and the dashboard count hide them by default. A link on My Agents shows them. Calls with no start time, and calls for agents that are not voice agents in the account, are skipped and counted.
 
-The only Retell requests the app can make are `POST /v2/list-agents` and `POST /v3/list-calls`. Both only read, and a test fails if the client gains any other request. Do not create webhooks, place calls or change agents from this app.
+The only Retell requests the app can make are `POST /v2/list-agents`, `POST /v3/list-calls` and `GET /v2/get-call/{call_id}`. All three only read, and a test fails if the client gains any other request. Do not create webhooks, place calls or change agents from this app.

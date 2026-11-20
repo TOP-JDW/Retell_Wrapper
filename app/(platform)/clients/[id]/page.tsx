@@ -69,7 +69,7 @@ export default async function Client({params, searchParams}: {params: Promise<{i
         : <div className="table-scroll"><table>
             <thead><tr><th>Started</th><th>Agent</th><th>Status</th><th className="num">Length</th><th>Ended because</th></tr></thead>
             <tbody>{calls.map(call => <tr key={call.id}>
-              <td>{formatTime(call.started_at)}</td><td className="primary-cell">{call.agent_name}</td>
+              <td><Link className="row-link" href={`/calls/${call.id}`}>{formatTime(call.started_at)}</Link></td><td className="primary-cell">{call.agent_name}</td>
               <td><span className={`pill ${callTone(call.call_status)}`}>{capitalise(plainWords(call.call_status))}</span></td>
               <td className="num">{formatDuration(call.duration_ms)}</td>
               <td className="muted">{capitalise(plainWords(call.disconnection_reason))}</td>
