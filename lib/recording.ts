@@ -34,3 +34,14 @@ export function rememberLink(key: string, url: string, now = Date.now()): void {
   if (cache.size > 500) cache.clear()
   cache.set(key, { url, until: now + 60_000 })
 }
+
+// Recordings are fetched only from Retell's storage: HTTPS, the standard port, and a host that Retell is known to use.
+// Anything else (a private address, an IP literal, another site) is refused before a request is made.
+const recordingHosts = [/^retellai\.s3(\.[a-z0-9-]+)?\.amazonaws\.com$/, /^[a-z0-9]+\.cloudfront\.net$/]
+export function allowedRecordingUrl(link: string): URL | null {
+  let url: URL
+  try { url = new URL(link) } catch { return null }
+  if (url.protocol !== 'https:' || url.port !== '' || url.username || url.password) return null
+  const host = url.hostname.toLowerCase()
+  return recordingHosts.some(pattern => pattern.test(host)) ? url : null
+}

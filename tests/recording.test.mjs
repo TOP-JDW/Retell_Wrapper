@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
-import { cachedLink, relayHeaders, rememberLink, safeRange } from '../lib/recording.ts'
+import { allowedRecordingUrl, cachedLink, relayHeaders, rememberLink, safeRange } from '../lib/recording.ts'
 
 test('only simple byte ranges are passed on to the recording host', () => {
   for (const ok of ['bytes=0-', 'bytes=100-200', 'bytes=-500']) assert.equal(safeRange(ok), ok)
@@ -50,4 +50,24 @@ test('recordings and transcripts are read from Retell only for owners and admins
   assert.match(preview, /if \(!client\.recordings_for_client\) notFound\(\)/, 'the preview opens calls only when the client setting is on')
   const insight = await readFile(new URL('../app/components/CallInsight.tsx', import.meta.url), 'utf8')
   assert.ok(!/^['"]use client['"]/m.test(insight), 'the Retell part never runs in the browser')
+})
+
+test('recordings are fetched only over HTTPS from Retell\'s storage hosts', () => {
+  for (const ok of ['https://retellai.s3.us-west-2.amazonaws.com/abc/recording.wav?X-Amz-Signature=1', 'https://retellai.s3.amazonaws.com/a.wav',
+    'https://dxc03zgurdly9.cloudfront.net/abc/recording.wav'])
+    assert.ok(allowedRecordingUrl(ok), ok)
+  for (const bad of ['http://retellai.s3.us-west-2.amazonaws.com/a.wav', 'https://169.254.169.254/latest/meta-data', 'https://127.0.0.1/a.wav',
+    'https://localhost/a.wav', 'https://retellai.s3.us-west-2.amazonaws.com:8443/a.wav', 'https://evil.com/retellai.s3.amazonaws.com',
+    'https://retellai.s3.us-west-2.amazonaws.com.evil.com/a.wav', 'https://other-bucket.s3.amazonaws.com/a.wav', 'https://user:pw@retellai.s3.amazonaws.com/a',
+    'https://a.b.cloudfront.net/a.wav', 'file:///etc/passwd', 'not a url', ''])
+    assert.equal(allowedRecordingUrl(bad), null, bad)
+})
+
+test('the relay checks the host and does not follow redirects', async () => {
+  const route = await readFile(new URL('../app/(platform)/calls/[id]/recording/route.ts', import.meta.url), 'utf8')
+  assert.ok(route.indexOf('allowedRecordingUrl(link)') < route.indexOf('await fetch('))
+  assert.match(route, /fetch\(target\.href, .*redirect: 'manual'/)
+  // Access is checked before the shared link cache is read.
+  assert.ok(route.indexOf("membership.role !== 'owner' && membership.role !== 'admin'") < route.indexOf('cachedLink('))
+  assert.ok(route.indexOf(".eq('workspace_id', membership.workspace_id)") < route.indexOf('cachedLink('))
 })
