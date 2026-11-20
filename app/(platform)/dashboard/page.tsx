@@ -74,7 +74,7 @@ export default async function Dashboard({searchParams}: {searchParams: Promise<{
               const agent = agents.get(row.agent_id)
               const client = agent?.client_id ? clients.get(agent.client_id) : null
               return <tr key={row.agent_id}>
-                <td className="primary-cell">{agent?.name ?? 'Unknown'}
+                <td className="primary-cell">{agent ? <Link className="row-link" href={`/agents/${row.agent_id}`}>{agent.name}</Link> : 'Unknown'}
                   <span className="sub">{agent?.is_transfer_agent ? 'Transfer agent' : client ?? 'No client'}</span></td>
                 <td className="num">{row.total.toLocaleString('en-GB')}</td>
                 <td className="num">{formatPercent(row.total > 0 ? row.connected / row.total : null)}</td>

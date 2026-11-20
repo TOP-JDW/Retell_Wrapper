@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { member } from '../../../lib/auth'
 import { findCalls } from '../../../lib/calls'
-import { filterQuery, isFiltered, pageSize, parseCallFilters } from '../../../lib/filters'
+import { filterQuery, isFiltered, pageSize, parseCallFilters, scopeCalls } from '../../../lib/filters'
 import { formatDuration, formatTime, plainWords } from '../../../lib/format'
 import { addDays, londonMidnight } from '../../../lib/period'
 import { callTone, capitalise } from '../../../lib/status'
@@ -18,18 +18,7 @@ export default async function Calls({searchParams}: {searchParams: Promise<Recor
   const clients = clientList.data
   const agents = agentList.data
 
-  // Narrow to agents: the chosen agent, the chosen client's agents, or both.
-  let agentIds: string[] | undefined
-  if (filters.client) agentIds = agents.filter(agent => filters.client === 'none' ? !agent.client_id : agent.client_id === filters.client).map(agent => agent.id)
-  if (filters.agent) agentIds = (agentIds ?? [filters.agent]).filter(id => id === filters.agent)
-
-  // Transfer agents are hidden on My Agents, so their calls are hidden here too, unless asked for
-  // or a transfer agent was chosen in the Agent filter.
-  const transferIds = new Set(agents.filter(agent => agent.is_transfer_agent).map(agent => agent.id))
-  const hideTransfers = !filters.transfers && !(filters.agent && transferIds.has(filters.agent)) && transferIds.size > 0
-  const inScope = agentIds ?? agents.map(agent => agent.id)
-  const hiddenIds = hideTransfers ? inScope.filter(id => transferIds.has(id)) : []
-  if (hideTransfers) agentIds = inScope.filter(id => !transferIds.has(id))
+  const {agentIds, hiddenIds} = scopeCalls(agents, filters)
 
   const range = {
     fromTs: filters.from ? londonMidnight(filters.from).toISOString() : undefined,
@@ -44,7 +33,10 @@ export default async function Calls({searchParams}: {searchParams: Promise<Recor
   const pages = Math.max(1, Math.ceil(count / pageSize))
 
   return <div className="stack">
-    <header className="page-head"><div><h1>Call History</h1><p>Newest first. Times and dates are UK time.</p></div></header>
+    <header className="page-head"><div><h1>Call History</h1><p>Newest first. Times and dates are UK time.</p></div>
+      {(membership.role === 'owner' || membership.role === 'admin') && count > 0 &&
+        <a className="button quiet-link" href={`/calls/export${filterQuery({...filters, page: 1})}`} download>Export to Excel</a>}
+    </header>
 
     <form className="panel filters" action="/calls" aria-label="Filter calls">
       <label>Client<select name="client" defaultValue={filters.client ?? ''}>

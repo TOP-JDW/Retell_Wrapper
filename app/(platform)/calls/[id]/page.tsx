@@ -51,6 +51,7 @@ export default async function Call({params}: {params: Promise<{id: string}>}) {
     </div></header>
 
     <section className="panel facts" aria-label="Call details">
+      <div><span>Agent</span><b>{agent ? <Link className="row-link" href={`/agents/${call.agent_id}`}>{agent.name}</Link> : 'Unknown'}</b></div>
       <div><span>Status</span><b><span className={`pill ${callTone(call.call_status)}`}>{capitalise(plainWords(call.call_status))}</span></b></div>
       <div><span>Length</span><b>{formatDuration(call.duration_ms)}</b></div>
       <div><span>Type</span><b>{call.call_type === 'web_call' ? 'Web' : call.direction ? capitalise(plainWords(call.direction)) : 'Unknown'}</b></div>
