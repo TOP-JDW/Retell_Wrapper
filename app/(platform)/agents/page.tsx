@@ -34,29 +34,36 @@ export default async function Agents({searchParams}: {searchParams: Promise<Reco
 
   const problem = query.error && problems[query.error]
   const skipped = count(query.skipped)
-  return <>
-    <h1>My Agents</h1>
-    {query.notice === 'imported' && <p role="status" className="notice">
+  const connected = retellConfigured()
+  return <div className="stack">
+    <header className="page-head">
+      <div><h1>My Agents</h1><p>Your voice agents from Retell. A copy is kept here and refreshed when an owner imports.</p></div>
+      {isOwner && connected && <form action={importFromRetell}><button>Import from Retell</button></form>}
+    </header>
+    {query.notice === 'imported' && <p role="status" className="notice success">
       Imported {plural(count(query.agents), 'agent')} and {plural(count(query.calls), 'call')} from Retell.
       {skipped > 0 && ` ${plural(skipped, 'item')} could not be used and ${skipped === 1 ? 'was' : 'were'} skipped.`}
       {query.more === '1' && ` Retell has more data than one import reads. Only the ${maximumCalls.toLocaleString('en-GB')} most recent calls are imported.`}
     </p>}
     {problem && <p role="alert" className="notice problem">{problem}</p>}
-    {data.length === 0 ? <p>{transfers > 0 && !showTransfers ? 'No agents to show.' : 'No agents have been imported.'}</p> :
-      <table>
-        <thead><tr><th>Name</th><th>Status</th><th>Last changed in Retell</th></tr></thead>
-        <tbody>{data.map(agent => <tr key={agent.id}>
-          <td>{agent.name}{agent.is_transfer_agent && ' (transfer agent)'}</td><td>{agent.is_suspended ? 'Suspended' : 'Active'}</td><td>{formatTime(agent.retell_modified_at)}</td>
-        </tr>)}</tbody>
-      </table>}
-    {transfers > 0 && <p>{showTransfers
+    {isOwner && !connected && <p className="notice problem">Retell is not connected. Add RETELL_API_KEY to the app settings and restart the app.</p>}
+    <div className="panel">{data.length === 0
+      ? <div className="empty"><strong>{transfers > 0 && !showTransfers ? 'No agents to show' : 'No agents yet'}</strong>
+          <p>{isOwner ? 'Use Import from Retell to bring in your voice agents.' : 'An owner can import your voice agents from Retell.'}</p></div>
+      : <div className="table-scroll"><table>
+          <thead><tr><th>Name</th><th>Status</th><th>Last changed in Retell</th></tr></thead>
+          <tbody>{data.map(agent => <tr key={agent.id}>
+            <td className="primary-cell">{agent.name}{agent.is_transfer_agent && <span className="sub">Transfer agent</span>}</td>
+            <td><span className={`pill ${agent.is_suspended ? 'warn' : 'ok'}`}>{agent.is_suspended ? 'Suspended' : 'Active'}</span></td>
+            <td className="muted">{formatTime(agent.retell_modified_at)}</td>
+          </tr>)}</tbody>
+        </table></div>}
+    </div>
+    {transfers > 0 && <p className="hint">{showTransfers
       ? <Link href="/agents">Hide transfer agents</Link>
       : <Link href="/agents?transfers=1">Show transfer agents ({transfers} hidden)</Link>}</p>}
-    {isOwner ? <section aria-labelledby="import">
-      <h2 id="import">Import from Retell</h2>
-      <p>Reads your voice agents and the {maximumCalls.toLocaleString('en-GB')} most recent calls, and saves a copy here. Running it again updates the copy. Nothing is changed in Retell, and phone numbers, transcripts and recordings are not saved.</p>
-      {retellConfigured() ? <form action={importFromRetell}><button>Import from Retell</button></form>
-        : <p className="notice problem">Retell is not connected. Add RETELL_API_KEY to the app settings and restart the app.</p>}
-    </section> : <p>Only owners can import from Retell.</p>}
-  </>
+    <p className="hint">{isOwner
+      ? `The import reads your voice agents and the ${maximumCalls.toLocaleString('en-GB')} most recent calls. Nothing is changed in Retell, and phone numbers, transcripts and recordings are not saved.`
+      : 'Only owners can import from Retell.'}</p>
+  </div>
 }

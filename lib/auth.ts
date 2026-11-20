@@ -26,7 +26,7 @@ export const member = cache(async () => {
   const db = await database()
   const { data: { user } } = await db.auth.getUser()
   if (!user) redirect('/login')
-  const { data, error } = await db.from('memberships').select('user_id,workspace_id,role').eq('user_id', user.id).maybeSingle()
+  const { data, error } = await db.from('memberships').select('user_id,workspace_id,role,email').eq('user_id', user.id).maybeSingle()
   if (error) throw new Error('Workspace lookup failed.')
   if (!data) redirect('/access')
   return { db, membership: data }

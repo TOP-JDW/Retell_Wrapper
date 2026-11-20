@@ -2,6 +2,9 @@ import { redirect } from 'next/navigation'
 import { database } from '../../lib/auth'
 import { minimumPasswordLength, maximumPasswordLength } from '../../lib/members'
 import { setPassword } from './actions'
+import { AuthShell } from '../components/AuthShell'
+
+export const metadata = { title: 'Choose a password' }
 
 const problems: Record<string, string> = {
   short: `Use at least ${minimumPasswordLength} characters.`,
@@ -15,11 +18,13 @@ export default async function SetPassword({searchParams}: {searchParams: Promise
   const { data: { user } } = await db.auth.getUser()
   if (!user) redirect('/login')
   const {error} = await searchParams
-  return <main className="card"><small>VOICE OPERATIONS</small><h1>Choose a password</h1>
-    <p>You will use this with your email address to sign in.</p>
+  return <AuthShell>
+    <header><h1>Choose a password</h1><p>You will use it with your email address to sign in.</p></header>
     <form action={setPassword}>
       <label>New password<input type="password" name="password" autoComplete="new-password" required minLength={minimumPasswordLength} maxLength={maximumPasswordLength}/></label>
       <label>Confirm password<input type="password" name="confirm" autoComplete="new-password" required minLength={minimumPasswordLength} maxLength={maximumPasswordLength}/></label>
-      {error && problems[error] && <p role="alert">{problems[error]}</p>}<button>Save password</button>
-    </form></main>
+      {error && problems[error] && <p role="alert">{problems[error]}</p>}
+      <button>Save password</button>
+    </form>
+  </AuthShell>
 }

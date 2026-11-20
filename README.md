@@ -1,6 +1,12 @@
-# Retell Voice AI Management Platform
+# The One Point AI Voice
 
 Phase 1 provides a Next.js App Router application for internal workspace staff. Dashboard counts the local records. Client Management and Branding & Settings have read-only views of their respective tables. My Agents and Call History show a copy of your Retell voice agents and recent calls, which an owner refreshes with the Import button. User Permissions lets owners invite members, change roles and remove people. Lists show up to 100 records. Retell is connected read-only: the app can list agents and calls and can never change anything in Retell.
+
+## Brand
+
+The interface follows The One Point brand guidelines. Colours: royal `#2D3C97` for actions and the active page, sky `#57C1E8` as the accent, bright blue `#0071CE` for links, deep navy `#091B2D` for the sidebar, and pale `#E4E9F1` for lines. Logos are in `public/brand/`: `logo.png` for light backgrounds and `logo-reverse.png` for dark ones. Keep them at least 200px wide, and never recolour, rotate, outline or shadow them.
+
+The brand typeface is Object Sans. It is a licensed font and is not in the repo, so the app uses it when it is installed on the device and otherwise uses Plus Jakarta Sans, which is bundled. To use Object Sans for everyone, add the licensed web font files and an `@font-face` rule in `app/style.css`.
 
 ## Development setup
 
