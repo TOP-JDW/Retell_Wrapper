@@ -15,3 +15,13 @@ export function formatDuration(milliseconds: number | null | undefined): string 
 export function plainWords(value: string | null | undefined): string {
   return value ? value.replace(/_/g, ' ') : 'Unknown'
 }
+
+export function formatTalkTime(milliseconds: number): string {
+  const minutes = Math.round(Math.max(0, milliseconds) / 60000)
+  const hours = Math.floor(minutes / 60)
+  return hours > 0 ? `${hours}h ${minutes % 60}m` : `${minutes}m`
+}
+
+export function formatPercent(rate: number | null): string {
+  return rate === null ? 'None yet' : `${Math.round(rate * 100)}%`
+}

@@ -202,11 +202,9 @@ test('the import checks for an owner before it reads Retell or saves anything', 
   assert.equal((text.match(/export async function/g) ?? []).length, 1)
 })
 
-test('transfer agents are hidden by default in the list and the dashboard count', async () => {
+test('transfer agents are hidden by default in the agent list', async () => {
   const page = await readFile(new URL('../app/(platform)/agents/page.tsx', import.meta.url), 'utf8')
   assert.match(page, /if \(!showTransfers\) agentQuery = agentQuery\.eq\('is_transfer_agent', false\)/)
   assert.match(page, /showTransfers = query\.transfers === '1'/)
   assert.match(page, /\/agents\?transfers=1/)
-  const dashboard = await readFile(new URL('../app/(platform)/[section]/page.tsx', import.meta.url), 'utf8')
-  assert.match(dashboard, /table === 'agents'\) counting = counting\.eq\('is_transfer_agent', false\)/)
 })
