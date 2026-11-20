@@ -6,7 +6,9 @@ import { maximumClientName, parseId } from '../../../../lib/clients'
 import { formatDuration, formatTime, plainWords } from '../../../../lib/format'
 import { callTone, capitalise } from '../../../../lib/status'
 import { ConfirmButton } from '../../../components/ConfirmButton'
-import { deleteClient, renameClient } from '../actions'
+import { ClientBrandingForm } from '../../../components/ClientBrandingForm'
+import { defaultAccent, logoUrl } from '../../../../lib/branding'
+import { deleteClient, renameClient, saveClientBranding } from '../actions'
 import { clientNotices, clientProblems } from '../messages'
 
 export default async function Client({params, searchParams}: {params: Promise<{id: string}>; searchParams: Promise<{notice?: string; error?: string}>}) {
@@ -22,13 +24,17 @@ export default async function Client({params, searchParams}: {params: Promise<{i
   const {data: agents, error: agentError} = await db.from('agents').select('id,name,is_suspended,is_transfer_agent')
     .eq('workspace_id', membership.workspace_id).eq('client_id', id).order('name', {ascending: true}).limit(200)
   if (agentError) throw new Error('Client could not load.')
+  const {data: branding, error: brandingError} = await db.from('client_branding').select('display_name,accent_colour,logo_mime,logo_base64')
+    .eq('client_id', id).eq('workspace_id', membership.workspace_id).maybeSingle()
+  if (brandingError) throw new Error('Client could not load.')
+  const logo = logoUrl(branding?.logo_mime, branding?.logo_base64)
   const calls = await latestCalls(db, membership.workspace_id, 50, agents.map(agent => agent.id))
   const visible = agents.filter(agent => !agent.is_transfer_agent)
 
   return <div className="stack">
     <header className="page-head"><div>
       <p className="crumb"><Link href="/clients">Client Management</Link></p>
-      <h1>{client.name}</h1>
+      <div className="client-title">{logo && <img src={logo} alt=""/>}<h1>{client.name}</h1></div>
       <p>{visible.length === 1 ? '1 agent' : `${visible.length} agents`} linked to this client.</p>
     </div></header>
     {notice && clientNotices[notice] && <p role="status" className="notice success">{clientNotices[notice]}</p>}
@@ -46,6 +52,14 @@ export default async function Client({params, searchParams}: {params: Promise<{i
             </tr>)}</tbody>
           </table>}
       </div>
+    </section>
+
+    <section id="branding" className="panel panel-body" aria-labelledby="branding-title">
+      <div className="section-head"><h2 id="branding-title">Branding</h2></div>
+      {isStaff
+        ? <ClientBrandingForm clientId={client.id} action={saveClientBranding}
+            initial={{displayName: branding?.display_name ?? client.name, accent: branding?.accent_colour ?? defaultAccent, logo}}/>
+        : <p className="hint">{branding ? `Shown to this client as ${branding.display_name}, in ${branding.accent_colour}.` : 'No branding set yet. An owner or admin can set it.'}</p>}
     </section>
 
     <section>
