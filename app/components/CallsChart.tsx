@@ -22,7 +22,8 @@ function topRounded(x: number, y: number, w: number, h: number, r: number) {
   return `M${x},${y + h}V${y + radius}Q${x},${y} ${x + radius},${y}H${x + w - radius}Q${x + w},${y} ${x + w},${y + radius}V${y + h}Z`
 }
 
-export function CallsChart({ days, summary }: { days: ChartDay[]; summary: string }) {
+// colours defaults to the checked brand pair; the client preview passes the client's own colour instead.
+export function CallsChart({ days, summary, colours = chartColours }: { days: ChartDay[]; summary: string; colours?: { connected: string; other: string } }) {
   const [active, setActive] = useState<number | null>(null)
   const totals = days.map(d => d.connected + d.other)
   const step = niceStep(Math.max(...totals, 0))
@@ -49,8 +50,8 @@ export function CallsChart({ days, summary }: { days: ChartDay[]; summary: strin
         const otherBase = y(d.connected) - (d.connected > 0 && d.other > 0 ? gap : 0)
         return <g key={d.day}>
           {active === i && <rect x={left + slot * i} y={top} width={slot} height={innerH} fill="#F1F4F9"/>}
-          {d.connected > 0 && <path d={d.other > 0 ? `M${x},${y(0)}V${y(d.connected)}H${x + barW}V${y(0)}Z` : topRounded(x, y(d.connected), barW, hConnected, 4)} fill={chartColours.connected}/>}
-          {d.other > 0 && <path d={topRounded(x, otherBase - hOther, barW, hOther, 4)} fill={chartColours.other}/>}
+          {d.connected > 0 && <path d={d.other > 0 ? `M${x},${y(0)}V${y(d.connected)}H${x + barW}V${y(0)}Z` : topRounded(x, y(d.connected), barW, hConnected, 4)} fill={colours.connected}/>}
+          {d.other > 0 && <path d={topRounded(x, otherBase - hOther, barW, hOther, 4)} fill={colours.other}/>}
           {i === peak && totals[i] > 0 && <text x={cx} y={y(totals[i]) - (d.connected > 0 && d.other > 0 ? gap : 0) - 6} textAnchor="middle" className="chart-value">{totals[i].toLocaleString('en-GB')}</text>}
           {(i % labelEvery === 0 || i === days.length - 1) && (i === days.length - 1 || days.length - 1 - i >= labelEvery / 2) &&
             <text x={cx} y={H - 8} textAnchor="middle" className="chart-axis">{d.label}</text>}
@@ -64,8 +65,8 @@ export function CallsChart({ days, summary }: { days: ChartDay[]; summary: strin
     {shown && active !== null && <div className="chart-tip" role="status"
       style={{ left: `${((left + slot * active + slot / 2) / W) * 100}%`, transform: `translateX(${active < days.length * 0.15 ? '0' : active > days.length * 0.85 ? '-100%' : '-50%'})` }}>
       <strong>{shown.label}</strong>
-      <span><i style={{ background: chartColours.connected }}/>Connected<b>{shown.connected}</b></span>
-      <span><i style={{ background: chartColours.other }}/>Not connected<b>{shown.other}</b></span>
+      <span><i style={{ background: colours.connected }}/>Connected<b>{shown.connected}</b></span>
+      <span><i style={{ background: colours.other }}/>Not connected<b>{shown.other}</b></span>
       <span className="chart-tip-total">Total<b>{shown.connected + shown.other}</b></span>
     </div>}
   </div></div>

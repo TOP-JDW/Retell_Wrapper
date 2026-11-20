@@ -38,7 +38,8 @@ export default async function Client({params, searchParams}: {params: Promise<{i
         {logo && <div className="logo-tile"><img src={logo} alt={`${client.name} logo`}/></div>}
         <div><h1>{client.name}</h1><p>{visible.length === 1 ? '1 agent' : `${visible.length} agents`} linked to this client.</p></div>
       </div>
-    </div></header>
+    </div>
+    <Link className="button" href={`/preview/${client.id}`}>Preview as client</Link></header>
     {notice && clientNotices[notice] && <p role="status" className="notice success">{clientNotices[notice]}</p>}
     {error && clientProblems[error] && <p role="alert" className="notice problem">{clientProblems[error]}</p>}
 

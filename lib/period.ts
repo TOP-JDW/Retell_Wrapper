@@ -77,3 +77,12 @@ export function summarise(rows: { total: number; connected: number; connected_ms
 export function shortDate(date: string): string {
   return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${date}T00:00:00Z`))
 }
+
+// Adds several agents' daily figures together, day by day.
+export function mergeDays(lists: DayStat[][], dates: string[]): DayStat[] {
+  const filled = lists.map(rows => fillDays(rows, dates))
+  return dates.map((day, i) => filled.reduce((sum, rows) => ({
+    day, total: sum.total + rows[i].total, connected: sum.connected + rows[i].connected,
+    connected_ms: sum.connected_ms + rows[i].connected_ms, timed: sum.timed + rows[i].timed
+  }), { day, total: 0, connected: 0, connected_ms: 0, timed: 0 }))
+}

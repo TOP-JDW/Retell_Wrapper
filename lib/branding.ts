@@ -69,3 +69,12 @@ export function textOn(accent: string): '#FFFFFF' | '#091B2D' {
 export function logoUrl(mime: string | null | undefined, base64: string | null | undefined): string | null {
   return mime && base64 ? `data:${mime};base64,${base64}` : null
 }
+
+// Chart colours for a client's portal: their colour for connected calls and a neutral grey for the rest.
+// If their colour is itself greyish and close to that grey, a darker grey keeps the two apart.
+export function previewChartColours(accent: string): { connected: string; other: string } {
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(accent.slice(i, i + 2), 16))
+  const saturation = (Math.max(r, g, b) - Math.min(r, g, b)) / 255
+  const other = saturation < 0.2 && contrast(accent, '#B4BDCA') < 1.6 ? '#6B7585' : '#B4BDCA'
+  return { connected: accent, other }
+}
