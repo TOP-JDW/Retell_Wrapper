@@ -49,7 +49,7 @@ export default async function Client({params, searchParams}: {params: Promise<{i
         : <table>
             <thead><tr><th>Name</th><th>Status</th></tr></thead>
             <tbody>{visible.map(agent => <tr key={agent.id}>
-              <td className="primary-cell">{agent.name}</td>
+              <td className="primary-cell"><Link className="row-link" href={`/agents/${agent.id}`}>{agent.name}</Link></td>
               <td><span className={`pill ${agent.is_suspended ? 'warn' : 'ok'}`}>{agent.is_suspended ? 'Suspended' : 'Active'}</span></td>
             </tr>)}</tbody>
           </table>}

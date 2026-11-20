@@ -49,3 +49,19 @@ export function filterQuery(filters: CallFilters, changes: Partial<CallFilters> 
 export function isFiltered(filters: CallFilters): boolean {
   return Boolean(filters.client || filters.agent || filters.from || filters.to || filters.transfers)
 }
+
+export type ScopeAgent = { id: string; client_id: string | null; is_transfer_agent: boolean }
+
+// Which agents' calls to show for these filters, and which transfer agents' calls are being hidden.
+// Transfer agents are hidden on My Agents, so their calls are hidden too, unless asked for
+// or a transfer agent was chosen in the Agent filter. agentIds undefined means every agent.
+export function scopeCalls(agents: ScopeAgent[], filters: CallFilters): { agentIds: string[] | undefined; hiddenIds: string[] } {
+  let agentIds: string[] | undefined
+  if (filters.client) agentIds = agents.filter(agent => filters.client === 'none' ? !agent.client_id : agent.client_id === filters.client).map(agent => agent.id)
+  if (filters.agent) agentIds = (agentIds ?? [filters.agent]).filter(id => id === filters.agent)
+  const transferIds = new Set(agents.filter(agent => agent.is_transfer_agent).map(agent => agent.id))
+  const hideTransfers = !filters.transfers && !(filters.agent && transferIds.has(filters.agent)) && transferIds.size > 0
+  if (!hideTransfers) return { agentIds, hiddenIds: [] }
+  const inScope = agentIds ?? agents.map(agent => agent.id)
+  return { agentIds: inScope.filter(id => !transferIds.has(id)), hiddenIds: inScope.filter(id => transferIds.has(id)) }
+}

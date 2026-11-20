@@ -51,3 +51,18 @@ test('people outside a workspace, and anon, get nothing', async () => {
     await assert.rejects(as(db, null, `select * from public.call_agent_stats(${range})`), /permission denied/)
   } finally { await db.close() }
 })
+
+test('one agent\'s daily figures cover only that agent, in UK days, in your workspace', async () => {
+  const db = await createDb()
+  try {
+    await seed(db)
+    const rows = (await as(db, a, `select * from public.call_agent_daily_stats('${a}',${range})`)).rows
+      .map(r => [r.day.toISOString().slice(0, 10), r.total, r.connected])
+    assert.deepEqual(rows, [['2026-07-01', 3, 2], ['2026-07-03', 1, 0]])
+    const second = (await as(db, a, `select * from public.call_agent_daily_stats('${ids.newcomer}',${range})`)).rows
+    assert.deepEqual(second.map(r => r.day.toISOString().slice(0, 10)), ['2026-07-02'])
+    assert.equal((await as(db, a, `select * from public.call_agent_daily_stats('${b}',${range})`)).rows.length, 0)   // another workspace's agent
+    assert.equal((await as(db, viewerA, `select * from public.call_agent_daily_stats('${a}',${range})`)).rows.length, 2)
+    await assert.rejects(as(db, null, `select * from public.call_agent_daily_stats('${a}',${range})`), /permission denied/)
+  } finally { await db.close() }
+})

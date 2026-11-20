@@ -52,6 +52,12 @@ Each client's page has a Branding section: a display name, a main colour and an 
 
 Logos are PNG, JPEG, WebP or SVG, up to 256 KB, checked by their contents rather than their file name, and stored in the `client_branding` table, so there is no separate file store to secure. SVGs with scripts, event handlers or outside links are refused. Branding is deleted with its client. Button text on the client's colour switches between white and near-black to stay readable.
 
+## Quick search, agent pages and export
+
+- **Quick search:** press Ctrl+K (⌘K on a Mac), or the Search button in the sidebar, to jump to any page, agent or client. Type any words of a name; use the arrow keys and Enter, and Esc to close. Agent and client names load the first time it opens, limited to your workspace.
+- **Agent pages:** select an agent's name anywhere to see its figures and calls per day for 7, 30 or 90 days, and its latest calls. The figures come from the read-only `call_agent_daily_stats` database function.
+- **Export to Excel:** owners and admins export the calls Call History is showing, with the same filters, as an .xlsx file: UK times as real dates, lengths as real durations, a frozen header with filters, and a second sheet recording what was exported. Up to 10,000 calls per export.
+
 ## Call recordings and transcripts
 
 Open any call from Call History, the dashboard or a client page to see its details. Owners and admins also see Retell's summary, caller mood and success flag, the recording, and the transcript as a conversation: the line being spoken is highlighted, and choosing a line plays from there. Viewers see the call details only.

@@ -62,7 +62,7 @@ export default async function Agents({searchParams}: {searchParams: Promise<Reco
       : <div className="table-scroll"><table>
           <thead><tr><th>Name</th><th>Client</th><th>Status</th><th>Last changed in Retell</th></tr></thead>
           <tbody>{data.map(agent => <tr key={agent.id}>
-            <td className="primary-cell">{agent.name}{agent.is_transfer_agent && <span className="sub">Transfer agent</span>}</td>
+            <td className="primary-cell"><Link className="row-link" href={`/agents/${agent.id}`}>{agent.name}</Link>{agent.is_transfer_agent && <span className="sub">Transfer agent</span>}</td>
             {isStaff
               ? <td><form action={linkAgent} className="inline"><input type="hidden" name="agent_id" value={agent.id}/>
                   <select name="client_id" defaultValue={agent.client_id ?? ''} aria-label={`Client for ${agent.name}`}>
