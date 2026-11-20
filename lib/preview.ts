@@ -11,7 +11,7 @@ export const loadPreview = cache(async (rawId: string) => {
   if (!id) notFound()
   const { db, membership } = await member()
   const [client, branding, agents] = await Promise.all([
-    db.from('clients').select('id,name').eq('id', id).eq('workspace_id', membership.workspace_id).maybeSingle(),
+    db.from('clients').select('id,name,recordings_for_client').eq('id', id).eq('workspace_id', membership.workspace_id).maybeSingle(),
     db.from('client_branding').select('display_name,accent_colour,logo_mime,logo_base64').eq('client_id', id).eq('workspace_id', membership.workspace_id).maybeSingle(),
     db.from('agents').select('id,name,is_suspended').eq('workspace_id', membership.workspace_id).eq('client_id', id).eq('is_transfer_agent', false).order('name').limit(200)
   ])

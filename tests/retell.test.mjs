@@ -247,7 +247,7 @@ test('the Retell key stays on the server and is read in one file', async () => {
   assert.match(reading[0], /lib\/retell-server\.ts$/)
   assert.match(await readFile(new URL('../lib/retell-server.ts', import.meta.url), 'utf8'), /^import 'server-only'/)
   assert.deepEqual(importing.map(file => file.split('/app/').pop()).sort(),
-    ['(platform)/agents/actions.ts', '(platform)/agents/page.tsx', '(platform)/calls/[id]/page.tsx', '(platform)/calls/[id]/recording/route.ts'])
+    ['(platform)/agents/actions.ts', '(platform)/agents/page.tsx', '(platform)/calls/[id]/recording/route.ts', 'components/CallInsight.tsx'])
 })
 
 test('the import checks for an owner before it reads Retell or saves anything', async () => {

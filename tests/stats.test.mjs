@@ -66,3 +66,34 @@ test('one agent\'s daily figures cover only that agent, in UK days, in your work
     await assert.rejects(as(db, null, `select * from public.call_agent_daily_stats('${a}',${range})`), /permission denied/)
   } finally { await db.close() }
 })
+
+test('dashboard figures leave out transfer agents unless asked', async () => {
+  const db = await createDb()
+  try {
+    await seed(db)
+    await db.exec(`update agents set is_transfer_agent = true where id = '${ids.newcomer}'`)
+    const days = async extra => (await as(db, a, `select * from public.call_daily_stats(${range}${extra})`)).rows.reduce((n, r) => n + r.total, 0)
+    assert.equal(await days(''), 4, 'transfer calls are left out by default')
+    assert.equal(await days(', false'), 4)
+    assert.equal(await days(', true'), 5, 'and counted when asked')
+    const agentsListed = async extra => (await as(db, a, `select * from public.call_agent_stats(${range}${extra})`)).rows.map(r => r.agent_id)
+    assert.deepEqual(await agentsListed(''), [a])
+    assert.deepEqual((await agentsListed(', true')).sort(), [a, ids.newcomer].sort())
+    await assert.rejects(as(db, null, `select * from public.call_daily_stats(${range}, true)`), /permission denied/)
+  } finally { await db.close() }
+})
+
+test('only owners and admins can turn on recordings for a client, in their own workspace', async () => {
+  const db = await createDb()
+  try {
+    await db.exec(`insert into clients(id,workspace_id,name) values ('${ids.newcomer2}','${a}','Rec client')`)
+    const flag = async () => (await db.query(`select recordings_for_client from clients where id = '${ids.newcomer2}'`)).rows[0].recordings_for_client
+    assert.equal(await flag(), false, 'off by default')
+    await as(db, viewerA, `update clients set recordings_for_client = true where id = '${ids.newcomer2}'`)
+    assert.equal(await flag(), false, 'a viewer cannot turn it on')
+    await as(db, b, `update clients set recordings_for_client = true where id = '${ids.newcomer2}'`)
+    assert.equal(await flag(), false, 'another workspace cannot turn it on')
+    await as(db, a, `update clients set recordings_for_client = true where id = '${ids.newcomer2}'`)
+    assert.equal(await flag(), true, 'an owner can')
+  } finally { await db.close() }
+})

@@ -114,3 +114,16 @@ export async function saveClientBranding(form: FormData) {
   if (failure) { console.error('Branding could not be saved:', failure); back('save') }
   redirect(`/clients/${id}?notice=branding#branding`)
 }
+
+// Whether this client may play recordings and read transcripts once client logins exist.
+export async function setClientRecordings(form: FormData) {
+  const { db, membership } = await staff()
+  const id = parseId(form.get('client_id'))
+  if (!id) redirect('/clients?error=missing')
+  const on = form.get('recordings') === 'on'
+  const { data, error } = await db.from('clients').update({ recordings_for_client: on })
+    .eq('id', id).eq('workspace_id', membership.workspace_id).select('id')
+  if (error) { console.error('Recordings setting could not be saved:', error.message); redirect(`/clients/${id}?error=save`) }
+  if (!data?.length) redirect('/clients?error=missing')
+  redirect(`/clients/${id}?notice=${on ? 'recordings_on' : 'recordings_off'}`)
+}
