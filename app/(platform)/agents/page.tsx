@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { member } from '../../../lib/auth'
 import { formatTime } from '../../../lib/format'
 import { retellConfigured } from '../../../lib/retell-server'
@@ -20,9 +21,16 @@ export default async function Agents({searchParams}: {searchParams: Promise<Reco
   const query = await searchParams
   const {db, membership} = await member()
   const isOwner = membership.role === 'owner'
-  const {data, error} = await db.from('agents').select('id,name,is_suspended,retell_modified_at')
+  const showTransfers = query.transfers === '1'
+  let agentQuery = db.from('agents').select('id,name,is_suspended,is_transfer_agent,retell_modified_at')
     .eq('workspace_id', membership.workspace_id).order('name', {ascending: true}).limit(100)
+  if (!showTransfers) agentQuery = agentQuery.eq('is_transfer_agent', false)
+  const {data, error} = await agentQuery
   if (error) throw new Error('Agents could not load.')
+  const {count: transferCount, error: transferError} = await db.from('agents').select('*', {count: 'exact', head: true})
+    .eq('workspace_id', membership.workspace_id).eq('is_transfer_agent', true)
+  if (transferError) throw new Error('Agents could not load.')
+  const transfers = transferCount ?? 0
 
   const problem = query.error && problems[query.error]
   const skipped = count(query.skipped)
@@ -34,13 +42,16 @@ export default async function Agents({searchParams}: {searchParams: Promise<Reco
       {query.more === '1' && ` Retell has more data than one import reads. Only the ${maximumCalls.toLocaleString('en-GB')} most recent calls are imported.`}
     </p>}
     {problem && <p role="alert" className="notice problem">{problem}</p>}
-    {data.length === 0 ? <p>No agents have been imported.</p> :
+    {data.length === 0 ? <p>{transfers > 0 && !showTransfers ? 'No agents to show.' : 'No agents have been imported.'}</p> :
       <table>
         <thead><tr><th>Name</th><th>Status</th><th>Last changed in Retell</th></tr></thead>
         <tbody>{data.map(agent => <tr key={agent.id}>
-          <td>{agent.name}</td><td>{agent.is_suspended ? 'Suspended' : 'Active'}</td><td>{formatTime(agent.retell_modified_at)}</td>
+          <td>{agent.name}{agent.is_transfer_agent && ' (transfer agent)'}</td><td>{agent.is_suspended ? 'Suspended' : 'Active'}</td><td>{formatTime(agent.retell_modified_at)}</td>
         </tr>)}</tbody>
       </table>}
+    {transfers > 0 && <p>{showTransfers
+      ? <Link href="/agents">Hide transfer agents</Link>
+      : <Link href="/agents?transfers=1">Show transfer agents ({transfers} hidden)</Link>}</p>}
     {isOwner ? <section aria-labelledby="import">
       <h2 id="import">Import from Retell</h2>
       <p>Reads your voice agents and the {maximumCalls.toLocaleString('en-GB')} most recent calls, and saves a copy here. Running it again updates the copy. Nothing is changed in Retell, and phone numbers, transcripts and recordings are not saved.</p>

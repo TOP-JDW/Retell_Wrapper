@@ -104,6 +104,17 @@ test('owners can import and re-import agents and calls for their own workspace',
   } finally { await db.close() }
 })
 
+test('only owners can mark an agent as a transfer agent, and it starts as a normal agent', async () => {
+  const db = await createDb()
+  try {
+    assert.equal((await db.query(`select is_transfer_agent from agents where id='${a}'`)).rows[0].is_transfer_agent, false)
+    assert.equal((await as(db, a, `update agents set is_transfer_agent=true where id='${a}' returning *`)).rows.length, 1)
+    for (const user of [b, viewerA]) assert.equal((await as(db, user, `update agents set is_transfer_agent=false returning *`)).rows.length, 0)
+    assert.equal((await db.query(`select is_transfer_agent from agents where id='${a}'`)).rows[0].is_transfer_agent, true)
+    await assert.rejects(as(db, a, `update agents set is_transfer_agent=null where id='${a}'`), /not-null|null value/)
+  } finally { await db.close() }
+})
+
 test('an owner cannot import into, take over or read another workspace', async () => {
   const db = await createDb()
   try {

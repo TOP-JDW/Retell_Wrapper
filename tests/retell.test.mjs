@@ -24,7 +24,7 @@ const failureOf = async promise => { try { await promise } catch (error) { asser
 test('listing agents sends one read-only, voice-only request with the key', async () => {
   const { client, requests } = fake(reply({ items: [{ agent_id: 'agent_1', agent_name: 'Reception', is_suspended: false, user_modified_timestamp: 1767268800000 }], has_more: false }))
   const result = await client.listAgents()
-  assert.deepEqual(result.agents, [{ retell_agent_id: 'agent_1', name: 'Reception', is_suspended: false, retell_modified_at: '2026-01-01T12:00:00.000Z' }])
+  assert.deepEqual(result.agents, [{ retell_agent_id: 'agent_1', name: 'Reception', is_suspended: false, is_transfer_agent: false, retell_modified_at: '2026-01-01T12:00:00.000Z' }])
   assert.equal(requests.length, 1)
   const [{ url, init, body }] = requests
   assert.equal(url.origin, 'https://api.retellai.com')
@@ -34,6 +34,11 @@ test('listing agents sends one read-only, voice-only request with the key', asyn
   assert.equal(init.headers.Authorization, 'Bearer test-key')
   assert.equal(init.redirect, 'error')
   assert.deepEqual(body, { filter_criteria: { channel: { type: 'string', op: 'eq', value: 'voice' } } })
+})
+
+test('transfer agents are marked, and only when Retell clearly says so', () => {
+  assert.equal(toAgentRow({ agent_id: 'a', is_transfer_agent: true }).is_transfer_agent, true)
+  for (const value of [false, undefined, null, 'true', 1]) assert.equal(toAgentRow({ agent_id: 'a', is_transfer_agent: value }).is_transfer_agent, false)
 })
 
 test('agent pages are followed with the cursor Retell gives', async () => {
@@ -132,7 +137,7 @@ async function save(db, user, table, conflict, rows) {
 
 test('what the client produces fits the database and can be imported again safely', async () => {
   const { client } = fake(
-    reply({ items: [{ agent_id: 'agent_a', agent_name: 'Reception', is_suspended: false, user_modified_timestamp: 1767268800000 }, { agent_id: 'agent_b', agent_name: 'Sales', is_suspended: true }], has_more: false }),
+    reply({ items: [{ agent_id: 'agent_a', agent_name: 'Reception', is_suspended: false, user_modified_timestamp: 1767268800000 }, { agent_id: 'agent_b', agent_name: 'Sales', is_suspended: true }, { agent_id: 'agent_t', agent_name: 'Warm transfer', is_transfer_agent: true }], has_more: false }),
     reply({ has_more: false, items: [
       { call_id: 'call_1', agent_id: 'agent_a', agent_version: 1, call_status: 'ended', call_type: 'phone_call', direction: 'outbound', start_timestamp: 1767268800000, end_timestamp: 1767268860000, duration_ms: 60000, disconnection_reason: 'agent_hangup' },
       { call_id: 'call_2', agent_id: 'agent_b', call_status: 'ongoing', call_type: 'web_call', start_timestamp: 1767269000000 },
@@ -153,7 +158,10 @@ test('what the client produces fits the database and can be imported again safel
     assert.deepEqual(stored.rows.map(r => [r.name, r.is_suspended, r.call_status, r.call_type, r.direction, r.duration_ms]),
       [['Reception', false, 'ended', 'phone_call', 'outbound', 60000], ['Sales', true, 'ongoing', 'web_call', null, null]])
     // Importing twice must not create duplicates.
-    assert.equal((await db.query(`select count(*)::int as n from agents where retell_agent_id is not null`)).rows[0].n, 2)
+    assert.equal((await db.query(`select count(*)::int as n from agents where retell_agent_id is not null`)).rows[0].n, 3)
+    const visible = await db.query(`select name from agents where retell_agent_id is not null and is_transfer_agent = false order by name`)
+    assert.deepEqual(visible.rows.map(row => row.name), ['Reception', 'Sales'])
+    assert.equal((await db.query(`select name from agents where is_transfer_agent`)).rows[0].name, 'Warm transfer')
     assert.equal((await db.query(`select count(*)::int as n from calls`)).rows[0].n, 2)
   } finally { await db.close() }
 })
@@ -192,4 +200,13 @@ test('the import checks for an owner before it reads Retell or saves anything', 
   assert.ok(check < body.indexOf('readRetell()'))
   assert.ok(check < body.indexOf('.upsert('))
   assert.equal((text.match(/export async function/g) ?? []).length, 1)
+})
+
+test('transfer agents are hidden by default in the list and the dashboard count', async () => {
+  const page = await readFile(new URL('../app/(platform)/agents/page.tsx', import.meta.url), 'utf8')
+  assert.match(page, /if \(!showTransfers\) agentQuery = agentQuery\.eq\('is_transfer_agent', false\)/)
+  assert.match(page, /showTransfers = query\.transfers === '1'/)
+  assert.match(page, /\/agents\?transfers=1/)
+  const dashboard = await readFile(new URL('../app/(platform)/[section]/page.tsx', import.meta.url), 'utf8')
+  assert.match(dashboard, /table === 'agents'\) counting = counting\.eq\('is_transfer_agent', false\)/)
 })

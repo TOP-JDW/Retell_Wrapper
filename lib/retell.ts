@@ -7,7 +7,7 @@ const maximumAgentPages = 10
 const listPaths = ['/v2/list-agents', '/v3/list-calls'] as const
 type ListPath = (typeof listPaths)[number]
 
-export type AgentRow = { retell_agent_id: string; name: string; is_suspended: boolean; retell_modified_at: string | null }
+export type AgentRow = { retell_agent_id: string; name: string; is_suspended: boolean; is_transfer_agent: boolean; retell_modified_at: string | null }
 export type CallRow = {
   retell_call_id: string; retell_agent_id: string; started_at: string; ended_at: string | null; call_status: string | null
   call_type: string | null; direction: string | null; disconnection_reason: string | null; agent_version: number | null; duration_ms: number | null
@@ -40,6 +40,7 @@ export function toAgentRow(item: unknown): AgentRow | null {
     retell_agent_id: id,
     name: text(item.agent_name, 200) ?? 'Unnamed agent',
     is_suspended: item.is_suspended === true,
+    is_transfer_agent: item.is_transfer_agent === true,
     retell_modified_at: instant(item.user_modified_timestamp)
   }
 }
