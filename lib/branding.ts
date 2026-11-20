@@ -2,6 +2,10 @@
 export const maximumLogoBytes = 256 * 1024
 export const maximumDisplayName = 80
 export const defaultAccent = '#2D3C97'
+// The only fields a save may change on existing branding. They match the database's update permission;
+// the client and workspace are fixed once branding exists. Tests check this list against the database.
+export const brandingUpdateFields = ['display_name', 'accent_colour', 'logo_mime', 'logo_base64', 'updated_at'] as const
+export type BrandingChanges = Partial<Record<(typeof brandingUpdateFields)[number], string | null>>
 export type LogoType = 'image/png' | 'image/jpeg' | 'image/webp' | 'image/svg+xml'
 
 export function parseAccent(value: unknown): string | null {

@@ -1,7 +1,7 @@
 'use server'
 import { redirect } from 'next/navigation'
 import { member } from '../../../lib/auth'
-import { checkLogo, maximumLogoBytes, parseAccent, parseDisplayName } from '../../../lib/branding'
+import { checkLogo, maximumLogoBytes, parseAccent, parseDisplayName, type BrandingChanges } from '../../../lib/branding'
 import { parseClientName, parseId } from '../../../lib/clients'
 
 // Owners and admins manage clients. The database enforces the same rule.
@@ -79,21 +79,38 @@ export async function saveClientBranding(form: FormData) {
     .eq('id', id).eq('workspace_id', membership.workspace_id).maybeSingle()
   if (clientError || !client) redirect('/clients?error=missing')
 
-  const row: Record<string, string | null> = {
-    client_id: id, workspace_id: membership.workspace_id, display_name: displayName, accent_colour: accent, updated_at: new Date().toISOString()
-  }
+  // Only fields owners and admins may change once branding exists (see brandingUpdateFields).
+  const changes: BrandingChanges = { display_name: displayName, accent_colour: accent, updated_at: new Date().toISOString() }
   const file = form.get('logo')
   if (form.get('remove_logo') === 'on') {
-    row.logo_mime = null
-    row.logo_base64 = null
+    changes.logo_mime = null
+    changes.logo_base64 = null
   } else if (file instanceof File && file.size > 0) {
     if (file.size > maximumLogoBytes) back('logo_size')
     const logo = checkLogo(new Uint8Array(await file.arrayBuffer()))
     if (!logo.ok) back(logo.problem)
-    else { row.logo_mime = logo.mime; row.logo_base64 = logo.base64 }
+    else { changes.logo_mime = logo.mime; changes.logo_base64 = logo.base64 }
   }
 
-  const { error } = await db.from('client_branding').upsert(row, { onConflict: 'client_id' })
-  if (error) { console.error('Branding could not be saved:', error.message); back('save') }
+  // The first save adds the branding; later saves update it. Not an upsert: that would also try to
+  // rewrite the client and workspace, which the database rightly refuses.
+  const update = () => db.from('client_branding').update(changes)
+    .eq('client_id', id).eq('workspace_id', membership.workspace_id).select('client_id')
+  const { data: existing, error: findError } = await db.from('client_branding').select('client_id')
+    .eq('client_id', id).eq('workspace_id', membership.workspace_id).maybeSingle()
+  if (findError) { console.error('Branding could not be read:', findError.message); back('save') }
+  let failure: string | null = null
+  if (existing) {
+    const { data, error } = await update()
+    if (error || !data?.length) failure = error?.message ?? 'no row updated'
+  } else {
+    const { error } = await db.from('client_branding').insert({ client_id: id, workspace_id: membership.workspace_id, ...changes })
+    if (error?.code === '23505') {
+      // Someone else saved this client's branding first; apply these changes on top.
+      const { data, error: retryError } = await update()
+      if (retryError || !data?.length) failure = retryError?.message ?? 'no row updated'
+    } else if (error) failure = error.message
+  }
+  if (failure) { console.error('Branding could not be saved:', failure); back('save') }
   redirect(`/clients/${id}?notice=branding#branding`)
 }

@@ -96,3 +96,63 @@ test('button text stays readable on any client colour', () => {
   assert.equal(logoUrl('image/png', 'AAAA'), 'data:image/png;base64,AAAA')
   assert.equal(logoUrl(null, 'AAAA'), null)
 })
+
+// Regression: the first version saved with an upsert, which asks for update permission on the client and
+// workspace fields too. Postgres checks that before it knows whether a row exists, so every save failed.
+import { readFile } from 'node:fs/promises'
+import { brandingUpdateFields } from '../lib/branding.ts'
+
+test('saving twice the way the app saves works: insert first, then update only the allowed fields', async () => {
+  const db = await createDb()
+  try {
+    const { mine } = await withClients(db)
+    const asOwner = async (sql, params) => {
+      await db.exec(`reset role; set role authenticated; set request.jwt.claim.sub='${a}'`)
+      try { return await db.query(sql, params) } finally { await db.exec('reset role') }
+    }
+    await asOwner(`insert into client_branding(client_id,workspace_id,display_name,accent_colour) values ($1,$2,'Test Dental','#2D3C97')`, [mine, a])
+    const values = { display_name: 'Test Dental Care', accent_colour: '#0E7C66', logo_mime: 'image/png', logo_base64: 'iVBORw0KGgo=', updated_at: new Date().toISOString() }
+    const fields = [...brandingUpdateFields]
+    const result = await asOwner(`update client_branding set ${fields.map((f, i) => `${f}=$${i + 1}`).join(',')} where client_id=$${fields.length + 1} returning *`,
+      [...fields.map(f => values[f]), mine])
+    assert.equal(result.rows.length, 1)
+    assert.equal(result.rows[0].display_name, 'Test Dental Care')
+    assert.equal(result.rows[0].workspace_id, a)
+  } finally { await db.close() }
+})
+
+test('the database refuses an upsert on branding, which is why the app must not use one', async () => {
+  const db = await createDb()
+  try {
+    const { mine } = await withClients(db)
+    await save(db, a, a, mine)
+    await assert.rejects(as(db, a, `insert into client_branding(client_id,workspace_id,display_name,accent_colour) values ('${mine}','${a}','Again','#0E7C66')
+      on conflict (client_id) do update set client_id=excluded.client_id, workspace_id=excluded.workspace_id, display_name=excluded.display_name`), /permission denied/)
+  } finally { await db.close() }
+})
+
+test('the branding save inserts or updates, and never upserts', async () => {
+  const text = await readFile(new URL('../app/(platform)/clients/actions.ts', import.meta.url), 'utf8')
+  const save = text.slice(text.indexOf('export async function saveClientBranding'))
+  assert.ok(!save.includes('.upsert('), 'saveClientBranding must not upsert')
+  assert.match(save, /\.insert\(/)
+  assert.match(save, /\.update\(/)
+})
+
+// Any upsert sets every field it sends, so it needs update permission on all of them. The only upserts allowed
+// are the Retell import ones, whose exact SQL is exercised against the database in tests/retell.test.mjs.
+test('no new upserts without a database test for them', async () => {
+  const { readdir } = await import('node:fs/promises')
+  const { join } = await import('node:path')
+  const found = []
+  async function walk(folder) {
+    for (const entry of await readdir(folder, { withFileTypes: true })) {
+      if (['node_modules', '.next', '.git', 'tests', 'supabase', 'public'].includes(entry.name)) continue
+      const path = join(folder, entry.name)
+      if (entry.isDirectory()) await walk(path)
+      else if (/\.(ts|tsx)$/.test(entry.name)) for (const m of (await readFile(path, 'utf8')).matchAll(/from\('([a-z_]+)'\)\.upsert\(/g)) found.push(m[1])
+    }
+  }
+  await walk(new URL('..', import.meta.url).pathname)
+  assert.deepEqual(found.sort(), ['agents', 'calls'])
+})
