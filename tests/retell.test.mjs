@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { createRetell, toAgentRow, toCallRow, RetellError, maximumCalls } from '../lib/retell.ts'
+import { createRetell, toAgentRow, toCallRow, toCallDetail, RetellError, maximumCalls } from '../lib/retell.ts'
 import { formatDuration, formatTime, plainWords } from '../lib/format.ts'
 import { createDb, ids } from './setup.mjs'
 
@@ -98,12 +98,69 @@ test('the key never appears in an error message', async () => {
   try { await fake(reply({}, 401)).client.listCalls() } catch (error) { assert.ok(!String(error.message).includes('test-key')) }
 })
 
-test('only the two list endpoints exist in the client, and nothing can change Retell', async () => {
+test('only three read-only requests exist in the client, and nothing can change Retell', async () => {
   const source = await readFile(new URL('../lib/retell.ts', import.meta.url), 'utf8')
   const paths = new Set(source.match(/\/v\d+\/[a-z-]+/g))
-  assert.deepEqual([...paths].sort(), ['/v2/list-agents', '/v3/list-calls'])
-  assert.deepEqual([...new Set(source.match(/method:\s*'[A-Z]+'/g))], ["method: 'POST'"])
+  assert.deepEqual([...paths].sort(), ['/v2/get-call', '/v2/list-agents', '/v3/list-calls'])
+  assert.deepEqual([...new Set(source.match(/method:\s*'[A-Z]+'/g))].sort(), ["method: 'GET'", "method: 'POST'"])
   assert.ok(!/PATCH|PUT|DELETE|create-|update-|delete-|publish|webhook|phone-call|batch/i.test(source.replace(/\/\/.*$/gm, '')))
+})
+
+test('getting one call sends a single GET with the key and no body', async () => {
+  const { client, requests } = fake(reply({ call_id: 'call_abc', call_status: 'ended' }))
+  await client.getCall('call_abc')
+  assert.equal(requests.length, 1)
+  const [{ url, init }] = requests
+  assert.equal(url.href, 'https://api.retellai.com/v2/get-call/call_abc')
+  assert.equal(init.method, 'GET')
+  assert.equal(init.body, undefined)
+  assert.equal(init.headers.Authorization, 'Bearer test-key')
+  assert.equal(init.headers['Content-Type'], undefined)
+  assert.equal(init.redirect, 'error')
+})
+
+test('a call id that could change the request address is refused before anything is sent', async () => {
+  for (const bad of ['', '../list-calls', 'a/b', 'call?x=1', 'call#x', 'call%2F', 'x'.repeat(129), 'call id']) {
+    const { client, requests } = fake()
+    assert.equal(await failureOf(client.getCall(bad)), 'missing', bad)
+    assert.equal(requests.length, 0)
+  }
+})
+
+test('a call Retell cannot find is reported as missing', async () => {
+  for (const status of [404, 422]) assert.equal(await failureOf(fake(reply({ status: 'error', message: 'Cannot find requested asset' }, status)).client.getCall('call_x')), 'missing')
+  assert.equal(await failureOf(fake(reply({}, 401)).client.getCall('call_x')), 'rejected')
+  assert.equal(await failureOf(fake(reply([], 200)).client.getCall('call_x')), 'unexpected')
+})
+
+test('call details keep the recording link, a timed transcript and the analysis', () => {
+  const detail = toCallDetail({
+    recording_url: 'https://recordings.example.com/call_x.wav?sig=abc', scrubbed_recording_url: 'https://recordings.example.com/scrubbed.wav',
+    transcript: 'Agent: Hello', transcript_object: [
+      { role: 'agent', content: ' Hello, how can I help? ', words: [{ word: 'Hello', start: 0.5, end: 0.9 }, { word: 'help', start: 1.8, end: 2.2 }] },
+      { role: 'user', content: 'I need an appointment.', words: [{ word: 'I', start: 2.6, end: 2.7 }, { word: 'appointment', start: 3.4, end: 4.1 }] },
+      { role: 'transfer_target', content: 'Transferring now.', words: [] },
+      { role: 'system', content: 'not a speaker', words: [] }, { role: 'agent', content: '   ', words: [] }, 'junk'],
+    call_analysis: { call_summary: 'Caller booked an appointment.', user_sentiment: 'Positive', call_successful: true }
+  })
+  assert.equal(detail.recordingUrl, 'https://recordings.example.com/call_x.wav?sig=abc')
+  assert.deepEqual(detail.transcript, [
+    { role: 'agent', text: 'Hello, how can I help?', start: 0.5, end: 2.2 },
+    { role: 'user', text: 'I need an appointment.', start: 2.6, end: 4.1 },
+    { role: 'transfer_target', text: 'Transferring now.', start: null, end: null }])
+  assert.equal(detail.plainTranscript, null)
+  assert.deepEqual([detail.summary, detail.sentiment, detail.successful], ['Caller booked an appointment.', 'Positive', true])
+})
+
+test('unsafe or odd call details are dropped rather than shown', () => {
+  const detail = toCallDetail({ recording_url: 'http://insecure.example.com/a.wav', scrubbed_recording_url: 'javascript:alert(1)', transcript: 'Agent: Hi',
+    transcript_object: 'nope', call_analysis: { user_sentiment: 'Ecstatic', call_successful: 'yes' } })
+  assert.deepEqual(detail, { recordingUrl: null, transcript: [], plainTranscript: 'Agent: Hi', summary: null, sentiment: null, successful: null })
+  assert.equal(toCallDetail({ recording_url: 'https://user:pass@example.com/a.wav' }).recordingUrl, null)
+  assert.equal(toCallDetail({ scrubbed_recording_url: 'https://example.com/clean.wav' }).recordingUrl, 'https://example.com/clean.wav')
+  assert.deepEqual(toCallDetail(null).transcript, [])
+  const backwards = toCallDetail({ transcript_object: [{ role: 'agent', content: 'x', words: [{ start: 5, end: 6 }, { start: 1, end: 2 }] }] }).transcript[0]
+  assert.deepEqual([backwards.start, backwards.end], [5, null])
 })
 
 test('display helpers handle UK time, lengths and gaps', () => {
@@ -189,7 +246,8 @@ test('the Retell key stays on the server and is read in one file', async () => {
   assert.equal(reading.length, 1)
   assert.match(reading[0], /lib\/retell-server\.ts$/)
   assert.match(await readFile(new URL('../lib/retell-server.ts', import.meta.url), 'utf8'), /^import 'server-only'/)
-  assert.deepEqual(importing.map(file => file.split('/app/').pop()).sort(), ['(platform)/agents/actions.ts', '(platform)/agents/page.tsx'])
+  assert.deepEqual(importing.map(file => file.split('/app/').pop()).sort(),
+    ['(platform)/agents/actions.ts', '(platform)/agents/page.tsx', '(platform)/calls/[id]/page.tsx', '(platform)/calls/[id]/recording/route.ts'])
 })
 
 test('the import checks for an owner before it reads Retell or saves anything', async () => {

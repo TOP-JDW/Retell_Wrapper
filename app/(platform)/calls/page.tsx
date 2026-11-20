@@ -57,7 +57,7 @@ export default async function Calls({searchParams}: {searchParams: Promise<Recor
       : <div className="table-scroll"><table>
           <thead><tr><th>Started</th><th>Agent</th><th>Client</th><th>Status</th><th>Type</th><th className="num">Length</th><th>Ended because</th></tr></thead>
           <tbody>{rows.map(call => <tr key={call.id}>
-            <td>{formatTime(call.started_at)}</td>
+            <td><Link className="row-link" href={`/calls/${call.id}`}>{formatTime(call.started_at)}</Link></td>
             <td className="primary-cell">{call.agent_name}</td>
             <td className={call.client_name ? '' : 'unlinked'}>{call.client_name ?? 'No client'}</td>
             <td><span className={`pill ${callTone(call.call_status)}`}>{capitalise(plainWords(call.call_status))}</span></td>
