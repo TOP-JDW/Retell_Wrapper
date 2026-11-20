@@ -9,7 +9,7 @@ Use Node.js 22. Install with `npm ci`, copy `.env.example` to `.env.local` and f
 ## Provision the development database
 
 1. Create a dedicated Supabase project in your chosen organisation and region. In Authentication settings enable email/password and turn off new user sign-ups. Use HTTPS for hosted environments. Set the Site URL to the development app's origin before distributing it.
-2. Apply `supabase/migrations/20261118000100_phase_one.sql` once to that project in the SQL Editor, or apply the tracked migration using the Supabase CLI against that project.
+2. Apply every file in `supabase/migrations/` once, in filename order, to that project in the SQL Editor, or apply the tracked migrations using the Supabase CLI against that project.
 3. In Authentication → Users, create a confirmed account for the initial owner using a unique password. Copy that user's UUID. Run the following in the SQL Editor after replacing the placeholder. Both inserts form one atomic statement.
 
 ```sql
