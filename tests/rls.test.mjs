@@ -5,11 +5,11 @@ import { createDb, as, ids } from './setup.mjs'
 const { a, b, viewerA, viewerB } = ids
 const rows = async (db, user, sql) => (await as(db, user, sql)).rows.length
 
-test('member directory is limited to own workspace, and to own row for viewers', async () => {
+test('only owners see the member directory; everyone else sees their own row', async () => {
   const db = await createDb()
   try {
     assert.equal(await rows(db, a, 'select * from memberships'), 2)
-    assert.equal(await rows(db, b, 'select * from memberships'), 2)
+    assert.equal(await rows(db, b, 'select * from memberships'), 1)
     assert.equal(await rows(db, viewerA, 'select * from memberships'), 1)
     assert.equal(await rows(db, viewerB, 'select * from memberships'), 1)
   } finally { await db.close() }
@@ -25,15 +25,26 @@ test('every table is invisible to anon and to users outside any workspace', asyn
   } finally { await db.close() }
 })
 
-test('admins write clients and branding in their own workspace only', async () => {
+test('admins write clients in their own workspace only', async () => {
   const db = await createDb()
   try {
     assert.equal((await as(db, a, `update clients set name='Renamed' where workspace_id='${a}' returning *`)).rows.length, 1)
     assert.equal((await as(db, a, `update clients set name='Hijack' where workspace_id='${b}' returning *`)).rows.length, 0)
+    assert.equal((await as(db, b, `update clients set name='Renamed' where workspace_id='${b}' returning *`)).rows.length, 1)
     await assert.rejects(as(db, b, `update clients set workspace_id='${a}' returning *`), /row-level security/)
-    await assert.rejects(as(db, b, `insert into branding values ('${a}','Other brand')`), /row-level security|duplicate key/)
-    assert.equal((await as(db, b, `insert into branding values ('${b}','B brand') returning *`)).rows.length, 1)
-    await assert.rejects(as(db, b, `update branding set accent_colour='red'`), /check constraint/)
+    await assert.rejects(as(db, b, `insert into clients(workspace_id,name) values ('${a}','Outside')`), /row-level security/)
+  } finally { await db.close() }
+})
+
+test('only owners write branding, and only in their own workspace', async () => {
+  const db = await createDb()
+  try {
+    assert.equal((await as(db, a, `update branding set display_name='New' returning *`)).rows.length, 1)
+    await assert.rejects(as(db, a, `update branding set accent_colour='red'`), /check constraint/)
+    await assert.rejects(as(db, a, `insert into branding values ('${b}','Outside')`), /row-level security/)
+    // Workspace B has an admin but no owner, so nobody there can create branding through the application.
+    await assert.rejects(as(db, b, `insert into branding values ('${b}','B brand')`), /row-level security/)
+    assert.equal((await as(db, b, `update branding set display_name='x' returning *`)).rows.length, 0)
   } finally { await db.close() }
 })
 

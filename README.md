@@ -24,7 +24,7 @@ select id, 'REPLACE_WITH_AUTH_USER_UUID'::uuid, 'owner' from workspace;
 
 ## Permissions and data
 
-Supabase Auth supplies verified identities. Supabase SSR handles cookie-backed sessions and refresh. Every protected data page verifies identity and membership. PostgreSQL enforces workspace boundaries with row-level security. Owners and admins may read the member directory and write client and branding records through the database API. Viewers read workspace data and their own membership. Only a trusted database administrator provisions memberships in this phase. Agent and call data are read-only for all application users. Foreign keys prevent an agent or call from being linked to a record in a different workspace.
+Supabase Auth supplies verified identities. Supabase SSR handles cookie-backed sessions and refresh. Every protected data page verifies identity and membership. PostgreSQL enforces workspace boundaries with row-level security. Owners read the member directory and write branding records. Owners and admins write client records. Admins and viewers read workspace data and their own membership only. Branding is created by an owner, so a workspace needs an owner for its branding to be set through the application. Only a trusted database administrator provisions memberships in this phase. Agent and call data are read-only for all application users. Foreign keys prevent an agent or call from being linked to a record in a different workspace.
 
 ## Codex Cloud and checks
 
