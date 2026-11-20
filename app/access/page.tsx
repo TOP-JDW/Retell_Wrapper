@@ -1,4 +1,11 @@
+import { AuthShell } from '../components/AuthShell'
 import { signOut } from '../login/actions'
+
+export const metadata = { title: 'Access needed' }
+
 export default function Access() {
-  return <main className="card"><h1>Workspace access required</h1><p>Ask your administrator to assign your account to a workspace.</p><form action={signOut}><button>Return to sign-in</button></form></main>
+  return <AuthShell>
+    <header><h1>You need access</h1><p>Your account is not part of a workspace yet. Ask an owner to invite you.</p></header>
+    <form action={signOut}><button className="quiet">Back to sign-in</button></form>
+  </AuthShell>
 }

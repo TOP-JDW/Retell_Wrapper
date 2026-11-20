@@ -1,5 +1,6 @@
 import { member } from '../../../lib/auth'
 import { roles } from '../../../lib/members'
+import { capitalise, roleTone } from '../../../lib/status'
 import { ConfirmButton } from '../../components/ConfirmButton'
 import { changeRole, inviteMember, removeMember } from './actions'
 
@@ -30,35 +31,35 @@ export default async function Permissions({searchParams}: {searchParams: Promise
     .eq('workspace_id', membership.workspace_id).order('email', {ascending: true}).limit(100)
   if (failure) throw new Error('Members could not load.')
 
-  return <>
-    <h1>User Permissions</h1>
-    {notice && notices[notice] && <p role="status" className="notice">{notices[notice]}</p>}
+  return <div className="stack">
+    <header className="page-head"><div><h1>User Permissions</h1>
+      <p>{isOwner ? 'Owners invite people, change roles and remove access. Admins manage clients. Viewers can only look.' : 'Only owners can add, change or remove members. You can see your own role below.'}</p></div></header>
+    {notice && notices[notice] && <p role="status" className="notice success">{notices[notice]}</p>}
     {error && problems[error] && <p role="alert" className="notice problem">{problems[error]}</p>}
-    {!isOwner && <p>Only owners can add, change or remove members. You can see your own role below.</p>}
-    <table>
-      <thead><tr><th>Email</th><th>Role</th>{isOwner && <th>Actions</th>}</tr></thead>
+    <div className="panel"><div className="table-scroll"><table>
+      <thead><tr><th>Member</th><th>Role</th>{isOwner && <th><span className="visually-hidden">Actions</span></th>}</tr></thead>
       <tbody>{data.map(row => {
         const self = row.user_id === membership.user_id
         return <tr key={row.user_id}>
-          <td>{row.email ?? 'Unknown'}{self && ' (you)'}</td>
+          <td className="primary-cell">{row.email ?? 'Unknown'}{self && <span className="sub">You</span>}</td>
           {isOwner && !self ? <>
             <td><form action={changeRole} className="inline"><input type="hidden" name="user_id" value={row.user_id}/>
-              <select name="role" defaultValue={row.role} aria-label={`Role for ${row.email ?? 'member'}`}>{roles.map(role => <option key={role} value={role}>{role}</option>)}</select>
-              <button>Save</button></form></td>
-            <td><form action={removeMember} className="inline"><input type="hidden" name="user_id" value={row.user_id}/>
-              <ConfirmButton className="danger" message={`Remove ${row.email ?? 'this member'}? Their account will be deleted.`}>Remove</ConfirmButton></form></td>
-          </> : <><td>{row.role}</td>{isOwner && <td />}</>}
+              <select name="role" defaultValue={row.role} aria-label={`Role for ${row.email ?? 'member'}`}>{roles.map(role => <option key={role} value={role}>{capitalise(role)}</option>)}</select>
+              <button className="quiet small">Save</button></form></td>
+            <td className="num"><form action={removeMember} className="inline" style={{justifyContent: 'flex-end'}}><input type="hidden" name="user_id" value={row.user_id}/>
+              <ConfirmButton className="danger small" message={`Remove ${row.email ?? 'this member'}? Their account will be deleted.`}>Remove</ConfirmButton></form></td>
+          </> : <><td><span className={`pill ${roleTone(row.role)}`}>{capitalise(row.role)}</span></td>{isOwner && <td />}</>}
         </tr>
       })}</tbody>
-    </table>
-    {isOwner && <section aria-labelledby="invite">
-      <h2 id="invite">Invite a member</h2>
-      <p>They receive an email to accept the invitation and choose a password.</p>
+    </table></div></div>
+    {isOwner && <section className="panel panel-body" aria-labelledby="invite">
+      <div className="section-head"><h2 id="invite">Invite a member</h2></div>
+      <p className="hint" style={{marginBottom: '1rem'}}>They get an email to accept the invitation and choose a password.</p>
       <form action={inviteMember} className="invite">
         <label>Email address<input type="email" name="email" autoComplete="off" required maxLength={320}/></label>
-        <label>Role<select name="role" defaultValue="viewer">{roles.map(role => <option key={role} value={role}>{role}</option>)}</select></label>
+        <label>Role<select name="role" defaultValue="viewer">{roles.map(role => <option key={role} value={role}>{capitalise(role)}</option>)}</select></label>
         <button>Send invitation</button>
       </form>
     </section>}
-  </>
+  </div>
 }
