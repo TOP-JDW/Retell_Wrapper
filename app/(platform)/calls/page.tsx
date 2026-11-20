@@ -11,10 +11,11 @@ export default async function Calls() {
     <div className="panel">{calls.length === 0
       ? <div className="empty"><strong>No calls yet</strong><p>Calls appear here after an owner imports them from Retell on My Agents.</p></div>
       : <div className="table-scroll"><table>
-          <thead><tr><th>Started</th><th>Agent</th><th>Status</th><th>Type</th><th className="num">Length</th><th>Ended because</th></tr></thead>
+          <thead><tr><th>Started</th><th>Agent</th><th>Client</th><th>Status</th><th>Type</th><th className="num">Length</th><th>Ended because</th></tr></thead>
           <tbody>{calls.map(call => <tr key={call.id}>
             <td>{formatTime(call.started_at)}</td>
             <td className="primary-cell">{call.agent_name}</td>
+            <td className={call.client_name ? '' : 'unlinked'}>{call.client_name ?? 'No client'}</td>
             <td><span className={`pill ${callTone(call.call_status)}`}>{capitalise(plainWords(call.call_status))}</span></td>
             <td>{call.call_type === 'web_call' ? 'Web' : call.direction ? capitalise(plainWords(call.direction)) : 'Unknown'}</td>
             <td className="num">{formatDuration(call.duration_ms)}</td>

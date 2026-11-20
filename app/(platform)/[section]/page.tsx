@@ -44,7 +44,6 @@ export default async function Section({params}: {params: Promise<{section: strin
     </div>
   }
   const lists = {
-    clients: ['clients','name','No clients yet','Clients are the businesses your agents work for. Adding and editing clients comes next.'],
     settings: ['branding','display_name','No branding set','Branding for each client comes with client logins.']
   } as const
   const list = lists[section as keyof typeof lists]

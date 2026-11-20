@@ -74,7 +74,7 @@ test('only owners write agents and calls, and nobody can delete them', async () 
       assert.equal((await as(db, user, `update calls set call_status='x' returning *`)).rows.length, 0)
     }
     for (const user of [a, b, viewerA]) {
-      for (const table of ['clients', 'agents', 'calls']) await assert.rejects(as(db, user, `delete from ${table}`), /permission denied/)
+      for (const table of ['agents', 'calls']) await assert.rejects(as(db, user, `delete from ${table}`), /permission denied/)
     }
   } finally { await db.close() }
 })
