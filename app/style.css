@@ -383,3 +383,29 @@ input[type='file'] { padding: .45rem; font-size: .875rem; }
 .search-help { margin: 0; padding: .6rem 1.15rem; border-top: 1px solid var(--line); font-size: .75rem; color: var(--muted); background: var(--canvas); }
 .search-help kbd { font: inherit; font-size: .6875rem; padding: .05rem .35rem; margin-right: .2rem; border: 1px solid var(--line-strong); border-radius: 4px; background: #fff; }
 @media (max-width: 860px) { .search-trigger { margin: .25rem 0 .75rem; } .search-trigger kbd { display: none; } }
+
+/* Client preview: the whole portal in the client's colour, with a bar to get back. */
+.cp { min-height: 100vh; background: var(--canvas); }
+.cp-bar { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem;
+  padding: .6rem 1.25rem; background: var(--ink); color: rgba(255, 255, 255, .85); font-size: .875rem; }
+.cp-bar strong { color: #fff; }
+.cp-back { flex: none; padding: .4rem .85rem; border-radius: var(--radius-control); background: #fff; color: var(--ink); font-weight: 700; text-decoration: none; }
+.cp-back:hover { background: var(--mist); color: var(--ink); }
+.cp-shell { display: grid; grid-template-columns: 15rem minmax(0, 1fr); min-height: calc(100vh - 2.6rem); }
+.cp-side { background: #fff; border-right: 1px solid var(--line); padding: 1.5rem 1rem; }
+.cp-brand { padding: 0 .5rem 1.5rem; }
+.cp-brand img { max-width: 100%; max-height: 64px; width: auto; height: auto; object-fit: contain; }
+.cp-brand strong { font-size: 1.125rem; }
+.cp-nav { display: grid; gap: .15rem; }
+.cp-nav a { padding: .6rem .85rem; border-radius: var(--radius-control); color: var(--muted); font-weight: 500; text-decoration: none; }
+.cp-nav a:hover { color: var(--text); background: var(--canvas); }
+.cp-nav a[aria-current='page'] { color: var(--text); font-weight: 700; background: color-mix(in srgb, var(--accent) 12%, white); box-shadow: inset 3px 0 0 var(--accent); }
+.cp .segmented a[aria-current='true'] { box-shadow: inset 0 -2px 0 var(--accent), 0 1px 2px rgba(9, 27, 45, .12); }
+.cp .section-head a, .cp .hint a { color: var(--text); text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; }
+.cp button, .cp .button { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+@media (max-width: 860px) {
+  .cp-shell { grid-template-columns: 1fr; }
+  .cp-side { border-right: 0; border-bottom: 1px solid var(--line); padding: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .cp-brand { padding: 0; } .cp-brand img { max-height: 40px; }
+  .cp-nav { grid-auto-flow: column; }
+}
