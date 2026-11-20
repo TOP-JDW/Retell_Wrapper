@@ -1,10 +1,10 @@
 import Link from 'next/link'
 import { previewChartColours } from '../../../../lib/branding'
 import { latestCalls } from '../../../../lib/calls'
-import { formatDuration, formatPercent, formatTalkTime, formatTime, plainWords } from '../../../../lib/format'
+import { formatDuration, formatPercent, formatTalkTime } from '../../../../lib/format'
 import { mergeDays, parsePeriod, periodRange, periods, shortDate, summarise, type DayStat } from '../../../../lib/period'
 import { loadPreview } from '../../../../lib/preview'
-import { callTone, capitalise } from '../../../../lib/status'
+import { CallTable } from '../../../components/CallTable'
 import { CallsChart } from '../../../components/CallsChart'
 
 export default async function PreviewDashboard({params, searchParams}: {params: Promise<{clientId: string}>; searchParams: Promise<{days?: string}>}) {
@@ -47,14 +47,7 @@ export default async function PreviewDashboard({params, searchParams}: {params: 
       <div className="section-head"><h2>Latest calls</h2>{recent.length > 0 && <Link href={`${base}/calls`}>All calls</Link>}</div>
       <div className="panel">{recent.length === 0
         ? <div className="empty"><strong>No calls yet</strong></div>
-        : <div className="table-scroll"><table>
-            <thead><tr><th>Started</th><th>Agent</th><th>Status</th><th className="num">Length</th></tr></thead>
-            <tbody>{recent.map(call => <tr key={call.id}>
-              <td>{formatTime(call.started_at)}</td><td className="primary-cell">{call.agent_name}</td>
-              <td><span className={`pill ${callTone(call.call_status)}`}>{capitalise(plainWords(call.call_status))}</span></td>
-              <td className="num">{formatDuration(call.duration_ms)}</td>
-            </tr>)}</tbody>
-          </table></div>}
+        : <CallTable label="Latest calls" calls={recent} link={false} columns={['started', 'agent', 'status', 'length']}/>}
       </div>
     </section>
   </div>

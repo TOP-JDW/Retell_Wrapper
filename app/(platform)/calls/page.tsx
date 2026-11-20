@@ -1,10 +1,16 @@
 import Link from 'next/link'
 import { member } from '../../../lib/auth'
 import { findCalls } from '../../../lib/calls'
-import { filterQuery, isFiltered, pageSize, parseCallFilters, scopeCalls } from '../../../lib/filters'
-import { formatDuration, formatTime, plainWords } from '../../../lib/format'
+import { callSorts, filterQuery, isFiltered, pageSize, parseCallFilters, scopeCalls, type CallSort } from '../../../lib/filters'
 import { addDays, londonMidnight } from '../../../lib/period'
-import { callTone, capitalise } from '../../../lib/status'
+import { CallTable } from '../../components/CallTable'
+import { SubmitButton } from '../../components/SubmitButton'
+
+const sortSummary: Record<CallSort, Record<'asc' | 'desc', string>> = {
+  started: {desc: 'Newest first.', asc: 'Oldest first.'}, length: {desc: 'Longest first.', asc: 'Shortest first.'},
+  status: {asc: 'By status, A to Z.', desc: 'By status, Z to A.'}, type: {asc: 'By type, A to Z.', desc: 'By type, Z to A.'},
+  ended: {asc: 'By end reason, A to Z.', desc: 'By end reason, Z to A.'}
+}
 
 export default async function Calls({searchParams}: {searchParams: Promise<Record<string, string | string[] | undefined>>}) {
   const filters = parseCallFilters(await searchParams)
@@ -25,15 +31,16 @@ export default async function Calls({searchParams}: {searchParams: Promise<Recor
     toTs: filters.to ? londonMidnight(addDays(filters.to, 1)).toISOString() : undefined
   }
   const [{rows, count}, hidden] = await Promise.all([
-    findCalls(db, workspace, {limit: pageSize, offset: (filters.page - 1) * pageSize, agentIds, count: true, ...range}),
+    findCalls(db, workspace, {limit: pageSize, offset: (filters.page - 1) * pageSize, agentIds, count: true, order: {column: callSorts[filters.sort], ascending: filters.dir === 'asc'}, ...range}),
     hiddenIds.length > 0 ? findCalls(db, workspace, {limit: 1, agentIds: hiddenIds, count: true, ...range}).then(r => r.count) : Promise.resolve(0)
   ])
   const first = count === 0 ? 0 : (filters.page - 1) * pageSize + 1
   const last = Math.min(count, filters.page * pageSize)
   const pages = Math.max(1, Math.ceil(count / pageSize))
+  const newestFirst = filters.sort === 'started' && filters.dir === 'desc'
 
   return <div className="stack">
-    <header className="page-head"><div><h1>Call History</h1><p>Newest first. Times and dates are UK time.</p></div>
+    <header className="page-head"><div><h1>Call History</h1><p>{sortSummary[filters.sort][filters.dir]} Click a column heading to sort. Times and dates are UK time.</p></div>
       {(membership.role === 'owner' || membership.role === 'admin') && count > 0 &&
         <a className="button quiet-link" href={`/calls/export${filterQuery({...filters, page: 1})}`} download>Export to Excel</a>}
     </header>
@@ -50,7 +57,8 @@ export default async function Calls({searchParams}: {searchParams: Promise<Recor
       <label>From<input type="date" name="from" defaultValue={filters.from ?? ''}/></label>
       <label>To<input type="date" name="to" defaultValue={filters.to ?? ''}/></label>
       <label className="check filter-check"><input type="checkbox" name="transfers" value="1" defaultChecked={filters.transfers}/>Show transfer calls</label>
-      <div className="filter-actions"><button>Apply</button>{isFiltered(filters) && <Link href="/calls">Clear</Link>}</div>
+      {(filters.sort !== 'started' || filters.dir !== 'desc') && <><input type="hidden" name="sort" value={filters.sort}/><input type="hidden" name="dir" value={filters.dir}/></>}
+      <div className="filter-actions"><SubmitButton pending="Applying…">Apply</SubmitButton>{isFiltered(filters) && <Link href="/calls">Clear</Link>}</div>
     </form>
 
     <p className="result-count" role="status">
@@ -62,24 +70,16 @@ export default async function Calls({searchParams}: {searchParams: Promise<Recor
       ? <div className="empty"><strong>{isFiltered(filters) ? 'No calls match these filters' : 'No calls yet'}</strong>
           <p>{isFiltered(filters) ? 'Try a wider date range or a different client or agent.' : 'Calls appear here after an owner imports them from Retell on My Agents.'}</p>
           {isFiltered(filters) && <Link className="button" href="/calls">Clear filters</Link>}</div>
-      : <div className="table-scroll"><table>
-          <thead><tr><th>Started</th><th>Agent</th><th>Client</th><th>Status</th><th>Type</th><th className="num">Length</th><th>Ended because</th></tr></thead>
-          <tbody>{rows.map(call => <tr key={call.id}>
-            <td><Link className="row-link" href={`/calls/${call.id}`}>{formatTime(call.started_at)}</Link></td>
-            <td className="primary-cell">{call.agent_name}</td>
-            <td className={call.client_name ? 'wrap' : 'wrap unlinked'}>{call.client_name ?? 'No client'}</td>
-            <td><span className={`pill ${callTone(call.call_status)}`}>{capitalise(plainWords(call.call_status))}</span></td>
-            <td>{call.call_type === 'web_call' ? 'Web' : call.direction ? capitalise(plainWords(call.direction)) : 'Unknown'}</td>
-            <td className="num">{formatDuration(call.duration_ms)}</td>
-            <td className="muted wrap">{capitalise(plainWords(call.disconnection_reason))}</td>
-          </tr>)}</tbody>
-        </table></div>}
+      : <CallTable calls={rows} columns={['started', 'agent', 'client', 'status', 'type', 'length', 'ended']} searchHint="Search this page"
+          server={Object.fromEntries((Object.keys(callSorts) as CallSort[]).map(key => [key, {
+            asc: `/calls${filterQuery(filters, {sort: key, dir: 'asc', page: 1})}`, desc: `/calls${filterQuery(filters, {sort: key, dir: 'desc', page: 1})}`,
+            active: filters.sort === key ? filters.dir : undefined}]))}/>}
     </div>
 
     {pages > 1 && <nav className="pager" aria-label="Pages">
-      {filters.page > 1 ? <Link className="button quiet-link" href={`/calls${filterQuery(filters, {page: filters.page - 1})}`}>Newer calls</Link> : <span/>}
+      {filters.page > 1 ? <Link className="button quiet-link" href={`/calls${filterQuery(filters, {page: filters.page - 1})}`}>{newestFirst ? 'Newer calls' : 'Previous page'}</Link> : <span/>}
       <span>Page {filters.page} of {pages}</span>
-      {filters.page < pages ? <Link className="button quiet-link" href={`/calls${filterQuery(filters, {page: filters.page + 1})}`}>Older calls</Link> : <span/>}
+      {filters.page < pages ? <Link className="button quiet-link" href={`/calls${filterQuery(filters, {page: filters.page + 1})}`}>{newestFirst ? 'Older calls' : 'Next page'}</Link> : <span/>}
     </nav>}
   </div>
 }

@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server'
 import { database } from '../../../../lib/auth'
 import { findCalls } from '../../../../lib/calls'
 import { buildCallWorkbook, maximumExportRows, type ExportCall } from '../../../../lib/export'
-import { filterQuery, parseCallFilters, scopeCalls } from '../../../../lib/filters'
+import { callSorts, filterQuery, parseCallFilters, scopeCalls } from '../../../../lib/filters'
 import { addDays, londonMidnight, londonToday } from '../../../../lib/period'
 
 const refuse = (status: number) => new Response(null, { status, headers: { 'Cache-Control': 'private, no-store' } })
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   const calls: ExportCall[] = []
   let total = 0
   for (let offset = 0; offset < maximumExportRows; offset += 1000) {
-    const { rows, count } = await findCalls(db, workspace, { limit: 1000, offset, agentIds, count: offset === 0, ...range })
+    const { rows, count } = await findCalls(db, workspace, { limit: 1000, offset, agentIds, count: offset === 0, order: { column: callSorts[filters.sort], ascending: filters.dir === 'asc' }, ...range })
     if (offset === 0) total = count
     if (rows.length === 0) break
     const { data: ids, error: idError } = await db.from('calls').select('id,retell_call_id').in('id', rows.map(row => row.id))

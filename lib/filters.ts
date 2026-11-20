@@ -4,7 +4,12 @@ const identifier = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 const datePattern = /^(\d{4})-(\d{2})-(\d{2})$/
 export const pageSize = 100
 
-export type CallFilters = { client: string | 'none' | null; agent: string | null; from: string | null; to: string | null; page: number; transfers: boolean }
+// Columns Call History can sort by, across every page, and the database column behind each.
+export const callSorts = { started: 'started_at', status: 'call_status', type: 'call_type', length: 'duration_ms', ended: 'disconnection_reason' } as const
+export type CallSort = keyof typeof callSorts
+export type SortDirection = 'asc' | 'desc'
+
+export type CallFilters = { client: string | 'none' | null; agent: string | null; from: string | null; to: string | null; page: number; transfers: boolean; sort: CallSort; dir: SortDirection }
 
 function validDate(value: unknown): string | null {
   if (typeof value !== 'string') return null
@@ -29,7 +34,10 @@ export function parseCallFilters(query: Record<string, string | string[] | undef
     from, to,
     page: Number.isSafeInteger(page) && page >= 1 && page <= 10_000 ? page : 1,
     // Calls handled by transfer agents are hidden unless asked for, as transfer agents are on My Agents.
-    transfers: one('transfers') === '1'
+    transfers: one('transfers') === '1',
+    // Newest first unless a column heading was clicked.
+    sort: Object.hasOwn(callSorts, one('sort') ?? '') ? one('sort') as CallSort : 'started',
+    dir: one('dir') === 'asc' ? 'asc' : 'desc'
   }
 }
 
@@ -41,6 +49,7 @@ export function filterQuery(filters: CallFilters, changes: Partial<CallFilters> 
   if (next.from) params.set('from', next.from)
   if (next.to) params.set('to', next.to)
   if (next.transfers) params.set('transfers', '1')
+  if (next.sort !== 'started' || next.dir !== 'desc') { params.set('sort', next.sort); params.set('dir', next.dir) }
   if (next.page > 1) params.set('page', String(next.page))
   const text = params.toString()
   return text ? `?${text}` : ''

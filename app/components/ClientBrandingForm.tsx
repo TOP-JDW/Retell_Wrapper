@@ -1,5 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useUnsavedWarning } from './useUnsavedWarning'
+import { SubmitButton } from './SubmitButton'
 import { contrast, maximumDisplayName, maximumLogoBytes, parseAccent, textOn } from '../../lib/branding'
 
 type Props = {
@@ -15,6 +17,11 @@ export function ClientBrandingForm({ clientId, initial, action }: Props) {
   const [logo, setLogo] = useState<string | null>(initial.logo)
   const [remove, setRemove] = useState(false)
   const [fileProblem, setFileProblem] = useState<string | null>(null)
+  const [fileChosen, setFileChosen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  // Unsaved when anything differs from what was loaded. Sending the form clears the warning.
+  const dirty = !saving && (name !== initial.displayName || accentText.toUpperCase() !== initial.accent.toUpperCase() || remove || fileChosen)
+  useUnsavedWarning(dirty, 'The branding changes are not saved. Leave without saving?')
   const accent = parseAccent(accentText) ?? initial.accent
   const light = contrast(accent, '#FFFFFF') < 3
   const shownLogo = remove ? null : logo
@@ -23,6 +30,7 @@ export function ClientBrandingForm({ clientId, initial, action }: Props) {
 
   function chooseFile(file: File | undefined) {
     setFileProblem(null)
+    setFileChosen(Boolean(file))
     if (!file) { setLogo(initial.logo); return }
     if (file.size > maximumLogoBytes) { setFileProblem('This file is over 256 KB, so it will not be accepted.'); return }
     setRemove(false)
@@ -30,7 +38,7 @@ export function ClientBrandingForm({ clientId, initial, action }: Props) {
   }
 
   return <div className="branding-grid">
-    <form action={action} className="branding-form">
+    <form action={action} className="branding-form" onSubmit={() => setSaving(true)}>
       <input type="hidden" name="client_id" value={clientId}/>
       <label>Display name<input name="display_name" value={name} onChange={e => setName(e.target.value)} required maxLength={maximumDisplayName} autoComplete="off"/></label>
       <label>Main colour
@@ -44,7 +52,7 @@ export function ClientBrandingForm({ clientId, initial, action }: Props) {
       <p className="hint">PNG, JPEG, WebP or SVG, 256 KB at most. A logo made for a white background works best.</p>
       {fileProblem && <p role="alert" className="notice problem">{fileProblem}</p>}
       {initial.logo && <label className="check"><input type="checkbox" name="remove_logo" checked={remove} onChange={e => setRemove(e.target.checked)}/>Remove the current logo</label>}
-      <div><button>Save branding</button></div>
+      <div className="form-actions"><SubmitButton pending="Saving…">Save branding</SubmitButton>{dirty && <span className="unsaved">Unsaved changes</span>}</div>
     </form>
 
     <figure className="brand-preview" aria-label="Preview of the client's portal">

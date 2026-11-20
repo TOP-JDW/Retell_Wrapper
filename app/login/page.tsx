@@ -1,5 +1,6 @@
 import { AuthShell } from '../components/AuthShell'
 import { signIn } from './actions'
+import { SubmitButton } from '../components/SubmitButton'
 
 export const metadata = { title: 'Sign in' }
 
@@ -11,7 +12,7 @@ export default async function Login({searchParams}: {searchParams: Promise<{erro
       <label>Email address<input type="email" autoComplete="username" name="email" required maxLength={320}/></label>
       <label>Password<input type="password" name="password" autoComplete="current-password" required maxLength={1024}/></label>
       {error && <p role="alert">{error === 'invite' ? 'That invitation link has expired or has already been used. Ask an owner to send a new one.' : 'Sign-in failed. Check your details and try again.'}</p>}
-      <button>Sign in</button>
+      <SubmitButton pending="Signing in…">Sign in</SubmitButton>
     </form>
   </AuthShell>
 }
