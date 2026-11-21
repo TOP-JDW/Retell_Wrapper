@@ -582,3 +582,33 @@ td.no-match { padding: 1.5rem; text-align: center; color: var(--muted); white-sp
 .heat-legend .heat-cell { width: 1.1rem; min-height: .8rem; aspect-ratio: auto; }
 .heat-legend span:first-child { margin-right: .25rem; } .heat-legend span:last-child { margin-left: .25rem; }
 .pills { display: inline-flex; flex-wrap: wrap; gap: .3rem; }
+
+/* Call player extras */
+.call-nav { display: flex; gap: .5rem; flex-wrap: wrap; }
+.call-nav .disabled { opacity: .45; pointer-events: none; }
+.call-nav kbd, .shortcuts kbd { display: inline-block; padding: 0 .35rem; min-width: 1.3em; text-align: center; font: 600 .75rem/1.5 inherit; border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 4px; background: var(--surface); color: var(--muted); }
+.call-nav kbd { margin: 0 .1rem 0 .35rem; }
+.player-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
+.player-bar audio { flex: 1 1 18rem; }
+.speed { display: inline-flex; gap: 2px; padding: 3px; border-radius: 9px; background: var(--mist); }
+.speed button { padding: .3rem .55rem; font-size: .8125rem; font-weight: 600; border: 0; border-radius: 6px; background: transparent; color: var(--muted); }
+.speed button:hover { background: var(--surface); color: var(--text); }
+.speed button[aria-pressed='true'] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px var(--float-shadow); }
+.transcript-tools { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; margin: 1rem 0 .5rem; }
+.match-steps { display: inline-flex; gap: .25rem; }
+.line.dim button { opacity: .45; }
+.line.current button { box-shadow: 0 0 0 2px var(--warn); }
+.line mark { background: color-mix(in srgb, var(--warn) 35%, transparent); color: inherit; border-radius: 2px; padding: 0 1px; }
+.shortcuts { margin-top: .75rem; }
+.shortcuts kbd { margin: 0 .1rem; }
+
+/* Client setup checklist */
+.checklist-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.progress { height: 6px; margin: .75rem 0 1rem; border-radius: 999px; background: var(--mist); overflow: hidden; }
+.progress i { display: block; height: 100%; border-radius: inherit; background: var(--ok); }
+.checklist ol { list-style: none; margin: 0 0 .75rem; padding: 0; display: grid; gap: .6rem; }
+.checklist li { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .75rem; }
+.checklist li.done > span:nth-child(2) { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--line-strong); }
+.checklist .tick { display: grid; place-items: center; width: 1.35rem; height: 1.35rem; border-radius: 50%; border: 2px solid var(--line-strong); font-size: .75rem; font-weight: 700; color: #fff; }
+.checklist li.done .tick { background: var(--ok); border-color: var(--ok); }
+.checklist li a { font-size: .875rem; font-weight: 600; }

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { member } from '../../../lib/auth'
 import { checkLogo, maximumLogoBytes, parseAccent, parseDisplayName, type BrandingChanges } from '../../../lib/branding'
 import { parseClientName, parseId } from '../../../lib/clients'
+import { logActivity } from '../../../lib/activity'
 
 // Owners and admins manage clients. The database enforces the same rule.
 async function staff() {
@@ -22,6 +23,7 @@ export async function addClient(form: FormData) {
     if (!duplicate(error)) console.error('Client could not be added:', error.message)
     redirect(`/clients?error=${duplicate(error) ? 'duplicate' : 'save'}`)
   }
+  await logActivity(db, membership.workspace_id, { action: 'client.added', target_type: 'client', target_id: data.id, target_name: name })
   redirect(`/clients/${data.id}?notice=added`)
 }
 
@@ -31,6 +33,7 @@ export async function renameClient(form: FormData) {
   if (!id) redirect('/clients?error=missing')
   const name = parseClientName(form.get('name'))
   if (!name) redirect(`/clients/${id}?error=name`)
+  const { data: before } = await db.from('clients').select('name').eq('id', id).eq('workspace_id', membership.workspace_id).maybeSingle()
   const { data, error } = await db.from('clients').update({ name })
     .eq('id', id).eq('workspace_id', membership.workspace_id).select('id')
   if (error) {
@@ -38,6 +41,8 @@ export async function renameClient(form: FormData) {
     redirect(`/clients/${id}?error=${duplicate(error) ? 'duplicate' : 'save'}`)
   }
   if (!data?.length) redirect('/clients?error=missing')
+  if (before?.name !== name)
+    await logActivity(db, membership.workspace_id, { action: 'client.renamed', target_type: 'client', target_id: id, target_name: name, details: { from: before?.name ?? null } })
   redirect(`/clients/${id}?notice=renamed`)
 }
 
@@ -47,20 +52,26 @@ export async function deleteClient(form: FormData) {
   const id = parseId(form.get('client_id'))
   if (!id) redirect('/clients?error=missing')
   const { data, error } = await db.from('clients').delete()
-    .eq('id', id).eq('workspace_id', membership.workspace_id).select('id')
+    .eq('id', id).eq('workspace_id', membership.workspace_id).select('id,name')
   if (error) { console.error('Client could not be deleted:', error.message); redirect(`/clients/${id}?error=save`) }
   if (!data?.length) redirect('/clients?error=missing')
+  await logActivity(db, membership.workspace_id, { action: 'client.deleted', target_type: 'client', target_id: id, target_name: data[0].name })
   redirect('/clients?notice=deleted')
 }
 
 export async function linkAgent(form: FormData) {
-  const { db } = await staff()
+  const { db, membership } = await staff()
   const agent = parseId(form.get('agent_id'))
   const rawClient = form.get('client_id')
   const client = rawClient === '' ? null : parseId(rawClient)
   if (!agent || (rawClient !== '' && !client)) redirect('/agents?error=link')
   const { error } = await db.rpc('set_agent_client', { target_agent: agent, target_client: client })
   if (error) { console.error('Agent link failed:', error.message); redirect('/agents?error=link') }
+  const [{ data: agentRow }, { data: clientRow }] = await Promise.all([
+    db.from('agents').select('name').eq('id', agent).eq('workspace_id', membership.workspace_id).maybeSingle(),
+    client ? db.from('clients').select('name').eq('id', client).eq('workspace_id', membership.workspace_id).maybeSingle() : Promise.resolve({ data: null })
+  ])
+  await logActivity(db, membership.workspace_id, { action: 'agent.linked', target_type: 'agent', target_id: agent, target_name: agentRow?.name ?? null, details: { client: clientRow?.name ?? null } })
   redirect('/agents?notice=linked')
 }
 
@@ -75,7 +86,7 @@ export async function saveClientBranding(form: FormData) {
   const accent = parseAccent(form.get('accent_colour'))
   if (!accent) back('colour')
 
-  const { data: client, error: clientError } = await db.from('clients').select('id')
+  const { data: client, error: clientError } = await db.from('clients').select('id,name')
     .eq('id', id).eq('workspace_id', membership.workspace_id).maybeSingle()
   if (clientError || !client) redirect('/clients?error=missing')
 
@@ -112,6 +123,9 @@ export async function saveClientBranding(form: FormData) {
     } else if (error) failure = error.message
   }
   if (failure) { console.error('Branding could not be saved:', failure); back('save') }
+  const logoChange = changes.logo_base64 ? 'new logo' : changes.logo_mime === null && 'logo_mime' in changes ? 'logo removed' : null
+  await logActivity(db, membership.workspace_id, { action: 'client.branding_saved', target_type: 'client', target_id: id, target_name: client?.name ?? null,
+    details: { changes: [`name ${displayName}`, `colour ${accent}`, logoChange].filter(Boolean).join(', ') } })
   redirect(`/clients/${id}?notice=branding#branding`)
 }
 
@@ -122,8 +136,9 @@ export async function setClientRecordings(form: FormData) {
   if (!id) redirect('/clients?error=missing')
   const on = form.get('recordings') === 'on'
   const { data, error } = await db.from('clients').update({ recordings_for_client: on })
-    .eq('id', id).eq('workspace_id', membership.workspace_id).select('id')
+    .eq('id', id).eq('workspace_id', membership.workspace_id).select('id,name')
   if (error) { console.error('Recordings setting could not be saved:', error.message); redirect(`/clients/${id}?error=save`) }
   if (!data?.length) redirect('/clients?error=missing')
+  await logActivity(db, membership.workspace_id, { action: on ? 'client.recordings_on' : 'client.recordings_off', target_type: 'client', target_id: id, target_name: data[0].name })
   redirect(`/clients/${id}?notice=${on ? 'recordings_on' : 'recordings_off'}`)
 }
