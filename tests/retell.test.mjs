@@ -59,7 +59,8 @@ test('a cursor that does not move, or is missing, stops the import instead of lo
 test('listing calls asks for the newest calls only and keeps just what is needed', async () => {
   const { client, requests } = fake(reply({ has_more: true, pagination_key: 'more', items: [
     { call_id: 'c1', agent_id: 'a1', agent_version: 2, call_status: 'ended', call_type: 'phone_call', direction: 'inbound', from_number: '+441234567890', to_number: '+449876543210',
-      start_timestamp: 1767268800000, end_timestamp: 1767269100000, duration_ms: 300000, disconnection_reason: 'user_hangup', transcript: 'hello', recording_url: 'https://x' },
+      start_timestamp: 1767268800000, end_timestamp: 1767269100000, duration_ms: 300000, disconnection_reason: 'user_hangup', transcript: 'hello', recording_url: 'https://x',
+      call_cost: { combined_cost: 70.12345, product_costs: [{ product: 'elevenlabs_tts', cost: 60 }], total_duration_seconds: 300 } },
     { call_id: 'c2', agent_id: 'a1', call_status: 'not_connected' }
   ] }))
   const result = await client.listCalls()
@@ -68,7 +69,7 @@ test('listing calls asks for the newest calls only and keeps just what is needed
   assert.equal(result.truncated, true)
   assert.equal(result.skipped, 1) // no start time
   assert.deepEqual(result.calls, [{ retell_call_id: 'c1', retell_agent_id: 'a1', started_at: '2026-01-01T12:00:00.000Z', ended_at: '2026-01-01T12:05:00.000Z',
-    call_status: 'ended', call_type: 'phone_call', direction: 'inbound', disconnection_reason: 'user_hangup', agent_version: 2, duration_ms: 300000 }])
+    call_status: 'ended', call_type: 'phone_call', direction: 'inbound', disconnection_reason: 'user_hangup', agent_version: 2, duration_ms: 300000, cost_cents: 70.1235 }])
   const keys = Object.keys(result.calls[0]).join(' ')
   for (const personal of ['number', 'transcript', 'recording']) assert.ok(!keys.includes(personal))
 })
@@ -82,7 +83,9 @@ test('bad or odd data is cleaned or skipped, never trusted', () => {
   assert.equal(toCallRow({ call_id: 'c', agent_id: 'a', start_timestamp: 0 }), null)
   assert.equal(toCallRow({ call_id: 'c', start_timestamp: 1767268800000 }), null)
   const odd = toCallRow({ call_id: 'c', agent_id: 'a', start_timestamp: 1767268800000, end_timestamp: 1767268000000, call_type: 'carrier_pigeon', direction: 'sideways', duration_ms: -4, agent_version: 1.5 })
-  assert.deepEqual([odd.ended_at, odd.call_type, odd.direction, odd.duration_ms, odd.agent_version], [null, null, null, null, null])
+  assert.deepEqual([odd.ended_at, odd.call_type, odd.direction, odd.duration_ms, odd.agent_version, odd.cost_cents], [null, null, null, null, null, null])
+  for (const cost of [-1, Infinity, '70', 1e12, null]) assert.equal(toCallRow({ call_id: 'c', agent_id: 'a', start_timestamp: 1767268800000, call_cost: { combined_cost: cost } }).cost_cents, null, String(cost))
+  assert.equal(toCallRow({ call_id: 'c', agent_id: 'a', start_timestamp: 1767268800000, call_cost: 'free' }).cost_cents, null)
 })
 
 test('Retell problems become clear failures and nothing else', async () => {
@@ -196,7 +199,7 @@ test('what the client produces fits the database and can be imported again safel
   const { client } = fake(
     reply({ items: [{ agent_id: 'agent_a', agent_name: 'Reception', is_suspended: false, user_modified_timestamp: 1767268800000 }, { agent_id: 'agent_b', agent_name: 'Sales', is_suspended: true }, { agent_id: 'agent_t', agent_name: 'Warm transfer', is_transfer_agent: true }], has_more: false }),
     reply({ has_more: false, items: [
-      { call_id: 'call_1', agent_id: 'agent_a', agent_version: 1, call_status: 'ended', call_type: 'phone_call', direction: 'outbound', start_timestamp: 1767268800000, end_timestamp: 1767268860000, duration_ms: 60000, disconnection_reason: 'agent_hangup' },
+      { call_id: 'call_1', agent_id: 'agent_a', agent_version: 1, call_status: 'ended', call_type: 'phone_call', direction: 'outbound', start_timestamp: 1767268800000, end_timestamp: 1767268860000, duration_ms: 60000, disconnection_reason: 'agent_hangup', call_cost: { combined_cost: 12.5 } },
       { call_id: 'call_2', agent_id: 'agent_b', call_status: 'ongoing', call_type: 'web_call', start_timestamp: 1767269000000 },
       { call_id: 'call_3', agent_id: 'agent_gone', call_status: 'ended', start_timestamp: 1767269000000 }
     ] }))
@@ -220,6 +223,7 @@ test('what the client produces fits the database and can be imported again safel
     assert.deepEqual(visible.rows.map(row => row.name), ['Reception', 'Sales'])
     assert.equal((await db.query(`select name from agents where is_transfer_agent`)).rows[0].name, 'Warm transfer')
     assert.equal((await db.query(`select count(*)::int as n from calls`)).rows[0].n, 2)
+    assert.deepEqual((await db.query(`select cost_cents from calls order by retell_call_id`)).rows.map(r => r.cost_cents === null ? null : Number(r.cost_cents)), [12.5, null], 'the cost is saved through the owner\'s own access')
   } finally { await db.close() }
 })
 

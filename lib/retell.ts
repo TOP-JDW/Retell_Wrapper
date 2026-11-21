@@ -13,6 +13,7 @@ export type AgentRow = { retell_agent_id: string; name: string; is_suspended: bo
 export type CallRow = {
   retell_call_id: string; retell_agent_id: string; started_at: string; ended_at: string | null; call_status: string | null
   call_type: string | null; direction: string | null; disconnection_reason: string | null; agent_version: number | null; duration_ms: number | null
+  cost_cents: number | null
 }
 export type RetellFailure = 'rejected' | 'rate' | 'unavailable' | 'unexpected' | 'missing'
 
@@ -48,6 +49,10 @@ export function toAgentRow(item: unknown): AgentRow | null {
 }
 
 // Calls without a start time (for example ones that never connected) cannot be stored, so they are skipped.
+// A cost in US cents. Retell may send fractions of a cent; anything negative, huge or not a number is dropped.
+const cents = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 && value < 1e9 ? Math.round(value * 10000) / 10000 : null
+
 export function toCallRow(item: unknown): CallRow | null {
   if (!isObject(item)) return null
   const id = text(item.call_id, 200)
@@ -67,7 +72,8 @@ export function toCallRow(item: unknown): CallRow | null {
     direction,
     disconnection_reason: text(item.disconnection_reason, 100),
     agent_version: whole(item.agent_version),
-    duration_ms: whole(item.duration_ms)
+    duration_ms: whole(item.duration_ms),
+    cost_cents: cents(isObject(item.call_cost) ? item.call_cost.combined_cost : undefined)
   }
 }
 

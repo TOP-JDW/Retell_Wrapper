@@ -25,3 +25,19 @@ export function formatTalkTime(milliseconds: number): string {
 export function formatPercent(rate: number | null): string {
   return rate === null ? 'None yet' : `${Math.round(rate * 100)}%`
 }
+
+// Retell reports costs in US cents.
+export function formatCost(cents: number | null | undefined): string {
+  if (typeof cents !== 'number' || !Number.isFinite(cents)) return 'Unknown'
+  return `$${(cents / 100).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+export function formatMinutes(milliseconds: number): string {
+  return (Math.max(0, milliseconds) / 60000).toLocaleString('en-GB', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+}
+
+// A cost per minute, to a tenth of a cent, because these are small numbers.
+export function formatRate(cents: number | null | undefined): string {
+  if (typeof cents !== 'number' || !Number.isFinite(cents)) return 'None yet'
+  return `$${(cents / 100).toLocaleString('en-GB', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}`
+}

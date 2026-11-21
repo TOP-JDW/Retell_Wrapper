@@ -86,3 +86,29 @@ export function mergeDays(lists: DayStat[][], dates: string[]): DayStat[] {
     connected_ms: sum.connected_ms + rows[i].connected_ms, timed: sum.timed + rows[i].timed
   }), { day, total: 0, connected: 0, connected_ms: 0, timed: 0 }))
 }
+
+// The period just before the last `days` days, the same length, for comparison.
+export function previousPeriodRange(days: Period, now = new Date()) {
+  const first = addDays(londonToday(now), -(days - 1))
+  return { fromTs: londonMidnight(addDays(first, -days)).toISOString(), toTs: londonMidnight(first).toISOString() }
+}
+
+// Months as 'YYYY-MM', in UK time.
+export function addMonths(month: string, n: number): string {
+  const [y, m] = month.split('-').map(Number)
+  const d = new Date(Date.UTC(y, m - 1 + n, 1))
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+}
+export const thisMonth = (now = new Date()) => londonToday(now).slice(0, 7)
+// A month from the address bar: one of the last 24 months, otherwise this month.
+export function parseMonth(value: unknown, now = new Date()): string {
+  const current = thisMonth(now)
+  if (typeof value !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) return current
+  return value <= current && value >= addMonths(current, -23) ? value : current
+}
+export function monthRange(month: string) {
+  return { fromTs: londonMidnight(`${month}-01`).toISOString(), toTs: londonMidnight(`${addMonths(month, 1)}-01`).toISOString() }
+}
+export function monthLabel(month: string): string {
+  return new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${month}-01T00:00:00Z`))
+}
