@@ -31,6 +31,16 @@ export default async function Client({params, searchParams}: {params: Promise<{i
   const logo = logoUrl(branding?.logo_mime, branding?.logo_base64)
   const calls = await latestCalls(db, membership.workspace_id, 50, agents.map(agent => agent.id))
   const visible = agents.filter(agent => !agent.is_transfer_agent)
+  // Setup steps for a new client. The recordings step counts as done once anyone has saved that setting.
+  const {count: recordingChoices} = isStaff ? await db.from('activity_log').select('id', {count: 'exact', head: true})
+    .eq('workspace_id', membership.workspace_id).eq('target_id', id).in('action', ['client.recordings_on', 'client.recordings_off']) : {count: 0}
+  const steps = [
+    {done: visible.length > 0, label: 'Link at least one agent', href: '/agents', action: 'Go to My Agents'},
+    {done: Boolean(branding), label: 'Add a display name and colour', href: '#branding', action: 'Go to Branding'},
+    {done: Boolean(logo), label: 'Upload a logo', href: '#branding', action: 'Go to Branding'},
+    {done: client.recordings_for_client || (recordingChoices ?? 0) > 0, label: 'Choose whether they can play recordings', href: '#recordings', action: 'Go to Recordings'}
+  ]
+  const doneCount = steps.filter(step => step.done).length
 
   return <div className="stack">
     <header className="page-head"><div>
@@ -42,6 +52,17 @@ export default async function Client({params, searchParams}: {params: Promise<{i
     </div>
     <Link className="button" href={`/preview/${client.id}`}>Preview as client</Link></header>
     <Flash success={notice && clientNotices[notice]} problem={error && clientProblems[error]}/>
+
+    {isStaff && doneCount < steps.length && <section className="panel panel-body checklist" aria-labelledby="setup-title">
+      <div className="checklist-head"><h2 id="setup-title">Set up {client.name}</h2><span className="muted">{doneCount} of {steps.length} done</span></div>
+      <div className="progress" role="progressbar" aria-label="Setup progress" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={doneCount}><i style={{width: `${(doneCount / steps.length) * 100}%`}}/></div>
+      <ol>{steps.map(step => <li key={step.label} className={step.done ? 'done' : ''}>
+        <span className="tick" aria-hidden="true">{step.done ? '✓' : ''}</span>
+        <span>{step.label}<span className="visually-hidden">{step.done ? ' (done)' : ' (to do)'}</span></span>
+        {!step.done && <Link href={step.href}>{step.action}</Link>}
+      </li>)}</ol>
+      <p className="hint">When all steps are done, check the result with Preview as client. This list then disappears.</p>
+    </section>}
 
     <section>
       <div className="section-head"><h2>Agents</h2>{isStaff && <Link href="/agents">Link agents</Link>}</div>
@@ -63,7 +84,7 @@ export default async function Client({params, searchParams}: {params: Promise<{i
         : <p className="hint">{branding ? `Shown to this client as ${branding.display_name}, in ${branding.accent_colour}.` : 'No branding set yet. An owner or admin can set it.'}</p>}
     </section>
 
-    <section className="panel panel-body" aria-labelledby="access-title">
+    <section id="recordings" className="panel panel-body" aria-labelledby="access-title">
       <div className="section-head"><h2 id="access-title">Recordings</h2></div>
       {isStaff
         ? <form action={setClientRecordings} className="stack-tight">

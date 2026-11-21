@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { member } from '../../../lib/auth'
 import { RetellError, type AgentRow, type CallRow, type RetellFailure } from '../../../lib/retell'
 import { retell, retellConfigured } from '../../../lib/retell-server'
+import { logActivity } from '../../../lib/activity'
 
 const chunks = <T,>(items: T[], size: number) =>
   Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size))
@@ -52,6 +53,7 @@ export async function importFromRetell() {
     if (error) { console.error('Calls could not be saved:', error.message); redirect('/agents?error=save') }
   }
 
+  await logActivity(db, workspace, { action: 'retell.imported', target_type: 'retell', details: { agents: agentIds.size, calls: callRows.length, skipped } })
   const summary = new URLSearchParams({
     notice: 'imported', agents: String(agentIds.size), calls: String(callRows.length),
     skipped: String(skipped), more: fetched.truncated ? '1' : '0'

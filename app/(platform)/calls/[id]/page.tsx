@@ -6,6 +6,7 @@ import { parseId } from '../../../../lib/clients'
 import { formatDuration, formatTime, plainWords } from '../../../../lib/format'
 import { callTone, capitalise } from '../../../../lib/status'
 import { CallInsight } from '../../../components/CallInsight'
+import { CallNav } from '../../../components/CallNav'
 
 export default async function Call({params}: {params: Promise<{id: string}>}) {
   const id = parseId((await params).id)
@@ -21,6 +22,18 @@ export default async function Call({params}: {params: Promise<{id: string}>}) {
   const agent = agents.get(call.agent_id)
   const client = agent?.client_id ? clients.get(agent.client_id) ?? null : null
 
+  // The calls just before and after this one. The time is quoted because it contains dots and colons, which the
+  // database API uses as separators; it comes from the database, and the id was checked as a UUID above.
+  // Newest first, as on Call History. Ties are broken by id.
+  const at = call.started_at
+  const [newer, older] = await Promise.all([
+    db.from('calls').select('id').eq('workspace_id', membership.workspace_id)
+      .or(`started_at.gt."${at}",and(started_at.eq."${at}",id.gt.${call.id})`).order('started_at', {ascending: true}).order('id', {ascending: true}).limit(1).maybeSingle(),
+    db.from('calls').select('id').eq('workspace_id', membership.workspace_id)
+      .or(`started_at.lt."${at}",and(started_at.eq."${at}",id.lt.${call.id})`).order('started_at', {ascending: false}).order('id', {ascending: false}).limit(1).maybeSingle()
+  ])
+  if (newer.error || older.error) throw new Error('Call could not load.')
+
   const finished = call.call_status === 'ended' || call.call_status === 'error' || call.call_status === 'not_connected'
 
   return <div className="stack">
@@ -28,7 +41,8 @@ export default async function Call({params}: {params: Promise<{id: string}>}) {
       <p className="crumb"><Link href="/calls">Call History</Link></p>
       <h1>Call with {agent?.name ?? 'an unknown agent'}</h1>
       <p>{formatTime(call.started_at)}, UK time.</p>
-    </div></header>
+    </div>
+    <CallNav newer={newer.data ? `/calls/${newer.data.id}` : null} older={older.data ? `/calls/${older.data.id}` : null}/></header>
 
     <section className="panel facts" aria-label="Call details">
       <div><span>Agent</span><b>{agent ? <Link className="row-link" href={`/agents/${call.agent_id}`}>{agent.name}</Link> : 'Unknown'}</b></div>
