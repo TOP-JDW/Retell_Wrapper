@@ -8,6 +8,8 @@ import { linkAgent } from '../clients/actions'
 import { DataTable } from '../../components/DataTable'
 import { Flash } from '../../components/Flash'
 import { SubmitButton } from '../../components/SubmitButton'
+import { loadHealth } from '../../../lib/health'
+import { agentWarnings } from '../../../lib/insights'
 
 const problems: Record<string, string> = {
   owner: 'Only owners can import from Retell.',
@@ -38,6 +40,7 @@ export default async function Agents({searchParams}: {searchParams: Promise<Reco
     .eq('workspace_id', membership.workspace_id).eq('is_transfer_agent', true)
   if (transferError) throw new Error('Agents could not load.')
   const transfers = transferCount ?? 0
+  const health = await loadHealth(db, membership.workspace_id)
   const {data: clients, error: clientError} = await db.from('clients').select('id,name')
     .eq('workspace_id', membership.workspace_id).order('name', {ascending: true}).limit(500)
   if (clientError) throw new Error('Agents could not load.')
@@ -60,7 +63,7 @@ export default async function Agents({searchParams}: {searchParams: Promise<Reco
     <div className="panel">{data.length === 0
       ? <div className="empty"><strong>{transfers > 0 && !showTransfers ? 'No agents to show' : 'No agents yet'}</strong>
           <p>{isOwner ? 'Use Import from Retell to bring in your voice agents.' : 'An owner can import your voice agents from Retell.'}</p></div>
-      : <DataTable label="Agents" searchHint="Search agents or clients" columns={[{label: 'Name'}, {label: 'Client'}, {label: 'Status'}, {label: 'Last changed in Retell', first: 'desc'}]}
+      : <DataTable label="Agents" searchHint="Search agents or clients" columns={[{label: 'Name'}, {label: 'Client'}, {label: 'Status'}, {label: 'Last call', first: 'desc'}, {label: 'Last changed in Retell', first: 'desc'}]}
           rows={data.map(agent => {
             const clientName = (agent.client_id && clientNames.get(agent.client_id)) || null
             return {key: agent.id, cells: [
@@ -72,7 +75,16 @@ export default async function Agents({searchParams}: {searchParams: Promise<Reco
                       <option value="">No client</option>{clients.map(client => <option key={client.id} value={client.id}>{client.name}</option>)}
                     </select><SubmitButton className="quiet small" pending="Saving…">Save</SubmitButton></form>}
                 : {value: clientName, text: clientName ?? 'No client', className: clientName ? '' : 'unlinked', content: clientName ?? 'No client'},
-              {value: agent.is_suspended ? 'Suspended' : 'Active', content: <span className={`pill ${agent.is_suspended ? 'warn' : 'ok'}`}>{agent.is_suspended ? 'Suspended' : 'Active'}</span>},
+              (() => {
+                const warnings = agentWarnings(health.byAgent.get(agent.id), agent)
+                const label = agent.is_suspended ? 'Suspended' : warnings.length ? warnings.map(w => w.kind === 'errors' ? 'Failing calls' : 'Quiet').join(' ') : 'Active'
+                return {value: label, content: <span className="pills">
+                  {warnings.length === 0 && <span className={`pill ${agent.is_suspended ? 'warn' : 'ok'}`}>{agent.is_suspended ? 'Suspended' : 'Active'}</span>}
+                  {warnings.map(w => <span key={w.kind} className={`pill ${w.kind === 'errors' ? 'bad' : 'warn'}`} title={w.text}>{w.kind === 'errors' ? 'Failing calls' : 'Quiet'}</span>)}
+                </span>}
+              })(),
+              {value: health.byAgent.get(agent.id)?.last_call_at ?? null, text: '', className: 'muted',
+                content: health.byAgent.get(agent.id)?.last_call_at ? formatTime(health.byAgent.get(agent.id)!.last_call_at) : 'No calls yet'},
               {value: agent.retell_modified_at, text: formatTime(agent.retell_modified_at), className: 'muted', content: formatTime(agent.retell_modified_at)}
             ]}
           })}/>}

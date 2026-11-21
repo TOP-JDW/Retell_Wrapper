@@ -545,3 +545,40 @@ td.no-match { padding: 1.5rem; text-align: center; color: var(--muted); white-sp
 
 /* Light areas set their own text colour too, because text colour is inherited as a value, not as a variable. */
 .cp, .bp-frame, .logo-tile { color: var(--text); }
+
+/* Usage month switcher */
+.month-nav { display: flex; align-items: center; gap: .75rem; }
+.month-nav a, .month-nav > span { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: var(--radius-control); border: 1px solid var(--line); background: var(--surface); color: var(--text); text-decoration: none; font-size: 1.1rem; }
+.month-nav > span { color: var(--faint); opacity: .5; }
+.month-nav strong { min-width: 9.5rem; text-align: center; font-size: 1.0625rem; }
+.month-nav a.month-now { width: auto; padding: 0 .75rem; font-size: .875rem; font-weight: 600; }
+
+/* Change against the previous period */
+.delta { display: inline-block; align-self: flex-start; width: fit-content; margin-top: .35rem; padding: .05rem .45rem; border-radius: 999px; font-size: .75rem; font-weight: 700; background: var(--mist); color: var(--muted); }
+.delta.ok { background: var(--ok-bg); color: var(--ok); }
+.delta.bad { background: var(--bad-bg); color: var(--bad); }
+.stat .delta + small { display: block; }
+
+/* Needs attention */
+.attention { padding: 1rem 1.5rem; border-left: 4px solid var(--warn); }
+.attention-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .25rem 1rem; margin-bottom: .5rem; }
+.attention ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
+.attention li { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .75rem; }
+.attention li a { font-weight: 600; }
+
+/* Busy hours: one hue, light to dark */
+.heat-summary { margin: 0 0 .75rem; color: var(--muted); }
+.heat-scroll { overflow-x: auto; }
+.heat { display: grid; grid-template-columns: 2.5rem repeat(24, minmax(1.1rem, 1fr)); gap: 3px; min-width: 34rem; }
+.heat-hour { font-size: .6875rem; color: var(--faint); text-align: left; }
+.heat-day { font-size: .75rem; color: var(--muted); align-self: center; }
+.heat-cell { display: block; aspect-ratio: 1.6; min-height: 1rem; border-radius: 3px; background: var(--mist); }
+.heat-cell.s1 { background: color-mix(in srgb, var(--chart-connected) 32%, var(--surface)); }
+.heat-cell.s2 { background: color-mix(in srgb, var(--chart-connected) 54%, var(--surface)); }
+.heat-cell.s3 { background: color-mix(in srgb, var(--chart-connected) 76%, var(--surface)); }
+.heat-cell.s4 { background: var(--chart-connected); }
+.heat .heat-cell:hover { outline: 2px solid var(--text); outline-offset: 1px; }
+.heat-legend { display: flex; align-items: center; gap: 4px; margin-top: .75rem; font-size: .75rem; color: var(--muted); }
+.heat-legend .heat-cell { width: 1.1rem; min-height: .8rem; aspect-ratio: auto; }
+.heat-legend span:first-child { margin-right: .25rem; } .heat-legend span:last-child { margin-left: .25rem; }
+.pills { display: inline-flex; flex-wrap: wrap; gap: .3rem; }

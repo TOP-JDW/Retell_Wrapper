@@ -66,3 +66,40 @@ export async function buildCallWorkbook(calls: ExportCall[], about: { filters: s
   info.getColumn(1).font = { bold: true }
   return Buffer.from(await workbook.xlsx.writeBuffer())
 }
+
+export type UsageRow = { client: string; total: number; connected: number; duration_ms: number; cost_cents: number; costed: number }
+
+// The Usage & Cost page for one month as an Excel file, one row per client, for invoicing.
+export async function buildUsageWorkbook(rows: UsageRow[], about: { month: string; exportedAt: Date }) {
+  const workbook = new ExcelJS.Workbook()
+  workbook.creator = 'The One Point AI Voice'
+  workbook.created = about.exportedAt
+  const sheet = workbook.addWorksheet('Usage', { views: [{ state: 'frozen', ySplit: 1 }] })
+  sheet.columns = [
+    { header: 'Client', key: 'client', width: 30 },
+    { header: 'Calls', key: 'total', width: 10 },
+    { header: 'Connected', key: 'connected', width: 12 },
+    { header: 'Minutes', key: 'minutes', width: 12, style: { numFmt: '#,##0.0' } },
+    { header: 'Retell cost (USD)', key: 'cost', width: 18, style: { numFmt: '$#,##0.00' } },
+    { header: 'Calls without a cost', key: 'missing', width: 20 }
+  ]
+  for (const row of rows) sheet.addRow({ client: row.client, total: row.total, connected: row.connected, minutes: row.duration_ms / 60000,
+    cost: row.cost_cents / 100, missing: row.total - row.costed })
+  const last = rows.length + 1
+  const totals = sheet.addRow({ client: 'Total', total: { formula: `SUM(B2:B${last})` }, connected: { formula: `SUM(C2:C${last})` },
+    minutes: { formula: `SUM(D2:D${last})` }, cost: { formula: `SUM(E2:E${last})` }, missing: { formula: `SUM(F2:F${last})` } })
+  totals.font = { bold: true }
+  const header = sheet.getRow(1)
+  header.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+  header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2D3C97' } }
+  const info = workbook.addWorksheet('About this export')
+  info.columns = [{ width: 22 }, { width: 80 }]
+  info.addRows([
+    ['Month', about.month],
+    ['Exported', about.exportedAt.toISOString()],
+    ['Costs', 'What Retell charged, in US dollars, before any margin. Transfer calls are included.'],
+    ['Minutes', 'Total call length, including calls that did not connect.']
+  ])
+  info.getColumn(1).font = { bold: true }
+  return Buffer.from(await workbook.xlsx.writeBuffer())
+}

@@ -97,3 +97,43 @@ test('only owners and admins can turn on recordings for a client, in their own w
     assert.equal(await flag(), true, 'an owner can')
   } finally { await db.close() }
 })
+
+test('usage adds up calls, minutes and cost per client, transfer calls included, for your workspace only', async () => {
+  const db = await createDb()
+  try {
+    await seed(db)
+    await db.exec(`insert into clients(id,workspace_id,name) values ('${ids.newcomer2}','${a}','Usage client');
+      update agents set client_id = '${ids.newcomer2}', is_transfer_agent = true where id = '${ids.newcomer}';
+      update calls set cost_cents = 12.5 where retell_call_id in ('c1','c4'); update calls set cost_cents = 20 where retell_call_id = 'c2'`)
+    const rows = (await as(db, a, `select * from public.call_usage(${range})`)).rows
+      .map(r => [r.client_id, r.total, r.connected, Number(r.duration_ms), Number(r.cost_cents), r.costed])
+    assert.deepEqual(rows, [[null, 4, 2, 180000, 32.5, 2], [ids.newcomer2, 1, 1, 30000, 12.5, 1]])
+    assert.deepEqual((await as(db, b, `select * from public.call_usage(${range})`)).rows.map(r => r.total), [1])
+    await assert.rejects(as(db, null, `select * from public.call_usage(${range})`), /permission denied/)
+    await assert.rejects(db.exec(`update calls set cost_cents = -1 where retell_call_id = 'c1'`), /check/)
+  } finally { await db.close() }
+})
+
+test('busy hours group calls by UK weekday and hour', async () => {
+  const db = await createDb()
+  try {
+    await seed(db)
+    const rows = (await as(db, a, `select * from public.call_hour_stats(${range}) order by weekday, hour`)).rows.map(r => [r.weekday, r.hour, r.total])
+    // 1 July 2026 is a Wednesday; 09:00 UTC is 10:00 BST. 23:30 UTC on 1 July is 00:30 on Thursday.
+    assert.deepEqual(rows, [[3, 10, 1], [3, 11, 1], [3, 12, 1], [4, 0, 1], [5, 13, 1]])
+  } finally { await db.close() }
+})
+
+test('agent health reports the last call and recent errors, measured from a given moment', async () => {
+  const db = await createDb()
+  try {
+    await seed(db)
+    const rows = (await as(db, a, `select * from public.agent_health('2026-07-03 18:00+00') order by agent_id`)).rows
+    const mine = rows.find(r => r.agent_id === a)
+    assert.equal(mine.last_call_at.toISOString(), '2026-07-03T12:00:00.000Z')
+    assert.deepEqual([mine.calls_24h, mine.errors_24h, mine.calls_7d, mine.errors_7d], [1, 1, 4, 1])
+    assert.ok(!rows.some(r => r.agent_id === b), 'other workspaces are not shown')
+    const earlier = (await as(db, a, `select * from public.agent_health('2026-07-01 10:30+00')`)).rows.find(r => r.agent_id === a)
+    assert.equal(earlier.last_call_at.toISOString(), '2026-07-01T10:00:00.000Z', 'later calls are ignored')
+  } finally { await db.close() }
+})

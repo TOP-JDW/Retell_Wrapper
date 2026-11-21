@@ -36,7 +36,7 @@ test('the dashboard leaves out transfer calls unless asked, in its figures and i
   const page = await read('app/(platform)/dashboard/page.tsx')
   assert.match(page, /const transfers = query\.transfers === '1'/)
   assert.match(page, /\.\.\.\(transfers \? \{include_transfers: true\} : \{\}\)/)
-  assert.match(page, /\.eq\('is_transfer_agent', false\)/)
+  assert.match(page, /transfers \? undefined : allAgents\.data\.filter\(agent => !agent\.is_transfer_agent\)/)
   assert.match(page, /latestCalls\(db, membership\.workspace_id, 5, shownAgents\)/)
 })
 
